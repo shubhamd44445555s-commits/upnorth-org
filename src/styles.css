@@ -1,0 +1,10 @@
+@import './styles.base.css';
+@import './styles-extensions.css';
+@import './styles.route.css';
+
+/* Keep the locked desktop header silhouette; dropdown affordances appear in the mobile drawer. */
+.nav-dropdown-trigger .caret { display: none; }
+
+@media (max-width: 760px) {
+  .nav-dropdown-trigger .caret { display: inline-flex; }
+}

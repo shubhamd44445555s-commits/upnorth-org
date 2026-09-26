@@ -1,0 +1,97 @@
+.nav-dropdown-wrap { position: relative; }
+.nav-dropdown-trigger { display: inline-flex; align-items: center; gap: 2px; padding: 5px 0; border: 0; background: transparent; color: #354843; font-size: 10px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color .2s ease; }
+.nav-dropdown-trigger:hover, .nav-dropdown-trigger[aria-expanded="true"] { color: var(--green); }
+.nav-dropdown-trigger .caret { display: inline-flex; align-items: center; transition: transform .2s ease; }
+.nav-dropdown-trigger[aria-expanded="true"] .caret { transform: rotate(180deg); }
+.nav-dropdown-menu { position: absolute; top: 31px; left: 50%; z-index: 5; min-width: 175px; transform: translateX(-50%); padding: 9px; background: var(--paper); border: 1px solid var(--line); box-shadow: 0 18px 40px rgba(19, 40, 34, .12); }
+.nav-dropdown-menu a { display: block; padding: 9px 10px; font-size: 10px; }
+.nav-dropdown-menu a:hover { background: #f3f7f2; }
+
+.events-section, .towns-section, .weekend-section, .featured-section { padding: 48px 0 54px; background: var(--paper); }
+.events-section { border-top: 1px solid #eef0eb; background: #fbfcf9; }
+.towns-section { background: var(--paper); }
+.weekend-section { background: #fbfcf9; border-top: 1px solid #eef0eb; }
+.featured-section { padding-bottom: 61px; }
+.horizontal-rail { width: min(1160px, calc(100% - 64px)); margin: 0 auto; display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: thin; scrollbar-color: #b9c9bf transparent; }
+.event-card { flex: 0 0 192px; background: white; border: 1px solid #e7e9e4; box-shadow: 0 2px 5px rgba(19, 43, 36, .04); transition: transform .25s ease, box-shadow .25s ease; }
+.event-card:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(19, 43, 36, .1); }
+.event-image { height: 104px; position: relative; overflow: hidden; }
+.event-image img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.date-badge { position: absolute; top: 9px; left: 9px; padding: 5px 6px; background: white; color: var(--green); font-size: 8px; font-weight: 700; letter-spacing: .05em; box-shadow: 0 2px 9px rgba(0,0,0,.12); }
+.event-body { padding: 12px; }
+.event-body h3 { margin: 0; color: #193f37; font: 700 16px/1.04 var(--serif); }
+.event-body p { min-height: 26px; margin: 7px 0 11px; color: #697a73; font-size: 9px; line-height: 1.35; }
+.event-body button, .business-body button { display: inline-flex; align-items: center; gap: 6px; background: transparent; padding: 0; color: var(--green); font-size: 9px; font-weight: 700; }
+
+.town-grid { width: min(1160px, calc(100% - 64px)); margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.town-card { min-height: 188px; position: relative; overflow: hidden; padding: 0; background: var(--deep); color: white; text-align: left; cursor: pointer; }
+.town-card img { width: 100%; height: 100%; min-height: 188px; display: block; object-fit: cover; transition: transform .5s ease; }
+.town-card:hover img { transform: scale(1.06); }
+.town-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4,22,19,.02) 25%, rgba(4,22,19,.83) 100%); }
+.town-overlay { position: absolute; z-index: 1; right: 13px; bottom: 13px; left: 13px; display: flex; flex-direction: column; gap: 5px; }
+.town-overlay strong, .town-card-all strong { font: 700 23px/1 var(--serif); }
+.town-overlay small, .town-card-all small { max-width: 180px; color: rgba(255,255,255,.83); font-size: 9px; line-height: 1.35; }
+.town-card-all { display: flex; align-items: flex-end; padding: 17px; background: var(--green); transition: background .2s ease; }
+.town-card-all:hover { background: #0a3c32; }
+.town-card-all > span { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.town-card-all .icon { margin-top: 6px; }
+
+.weekend-grid { width: min(1160px, calc(100% - 64px)); margin: 0 auto; display: grid; grid-template-columns: 1.38fr 1fr 1fr; grid-template-rows: 139px 139px; gap: 14px; }
+.weekend-card { position: relative; min-height: 0; overflow: hidden; background: var(--deep); color: white; }
+.weekend-card:first-child { grid-row: span 2; }
+.weekend-card img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .5s ease; }
+.weekend-card:hover img { transform: scale(1.04); }
+.weekend-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4,22,19,.02) 15%, rgba(4,22,19,.82) 100%); }
+.weekend-copy { position: absolute; z-index: 1; right: 15px; bottom: 14px; left: 15px; }
+.weekend-copy span { color: #e8d5ae; font-size: 8px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+.weekend-copy h3 { margin: 5px 0 4px; font: 700 22px/1 var(--serif); }
+.weekend-card:not(:first-child) .weekend-copy h3 { font-size: 17px; }
+.weekend-copy p { margin: 0; color: rgba(255,255,255,.8); font-size: 9px; }
+
+.featured-heading { width: min(1160px, calc(100% - 64px)); margin: 0 auto 22px; display: flex; justify-content: space-between; align-items: flex-end; }
+.section-heading-left { margin: 0; text-align: left; }
+.rail-controls { display: flex; gap: 7px; }
+.rail-controls button { width: 31px; height: 31px; display: grid; place-items: center; border: 1px solid #cfd8d1; background: white; color: var(--green); }
+.rail-controls button:hover { background: #f1f6f2; }
+.business-grid { width: min(1160px, calc(100% - 64px)); margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.business-card { background: white; border: 1px solid #e7e9e4; }
+.business-image { height: 128px; position: relative; overflow: hidden; }
+.business-image img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.business-image span { position: absolute; top: 10px; left: 10px; padding: 5px 7px; background: var(--gold); color: #fff; font-size: 8px; font-weight: 700; }
+.business-body { padding: 13px; }
+.business-body h3 { margin: 0; color: #193f37; font: 700 19px/1 var(--serif); }
+.business-body p { margin: 6px 0 13px; color: #697a73; font-size: 9px; }
+
+@media (max-width: 1000px) {
+  .nav-dropdown-trigger { font-size: 9px; }
+  .town-grid { width: min(100% - 40px, 760px); grid-template-columns: repeat(3, 1fr); }
+  .town-card:nth-child(4), .town-card:nth-child(5) { display: none; }
+  .weekend-grid { width: min(100% - 40px, 760px); }
+  .featured-heading, .business-grid { width: min(100% - 40px, 760px); }
+  .business-grid { grid-template-columns: repeat(3, 1fr); }
+  .horizontal-rail { width: min(100% - 40px, 760px); }
+}
+
+@media (max-width: 760px) {
+  .nav-dropdown-wrap { border-top: 1px solid #edf0ec; }
+  .nav-dropdown-trigger { width: 100%; justify-content: space-between; padding: 12px 0; font-size: 12px; text-align: left; }
+  .nav-dropdown-menu { position: static; min-width: 0; transform: none; padding: 0 0 7px 12px; border: 0; border-top: 1px solid #edf0ec; box-shadow: none; }
+  .nav-dropdown-menu a { padding: 8px 0; font-size: 11px; }
+  .events-section, .towns-section, .weekend-section, .featured-section { padding: 40px 0 45px; }
+  .horizontal-rail { width: calc(100% - 30px); gap: 12px; }
+  .event-card { flex-basis: 185px; }
+  .town-grid { width: calc(100% - 30px); grid-template-columns: repeat(2, 1fr); gap: 11px; }
+  .town-card { min-height: 158px; }
+  .town-card img { min-height: 158px; }
+  .town-card:nth-child(4), .town-card:nth-child(5) { display: flex; }
+  .town-overlay strong, .town-card-all strong { font-size: 20px; }
+  .weekend-grid { width: calc(100% - 30px); grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 137px); gap: 11px; }
+  .weekend-card:first-child { grid-row: span 1; grid-column: span 2; }
+  .weekend-card:not(:first-child) .weekend-copy h3 { font-size: 15px; }
+  .weekend-copy h3 { font-size: 21px; }
+  .featured-heading, .business-grid { width: calc(100% - 30px); }
+  .featured-heading { align-items: center; }
+  .business-grid { grid-template-columns: repeat(3, 84%); overflow-x: auto; padding-bottom: 8px; }
+  .business-image { height: 145px; }
+  .section-heading-left h2 { font-size: 31px; }
+}

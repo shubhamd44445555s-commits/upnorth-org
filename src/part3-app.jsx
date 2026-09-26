@@ -1,0 +1,61 @@
+import { useEffect, useState } from 'react'
+import { createRoot } from 'react-dom/client'
+import { askUpNorth } from './api/ask'
+import { subscribeToUpNorth } from './api/subscribe'
+import { createCheckoutPlaceholder, pricingTiers } from './config/pricing'
+import { listingBySlug, listings } from './data/listings'
+import { townBySlug, towns } from './data/towns'
+import { submitBusinessListing } from './lib/content-data'
+import { installSeo } from './seo'
+import './styles.part3.css'
+
+const p3FallbackImage = 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=85'
+function P3SafeImage({ src, alt = '', ...props }) {
+  const [source, setSource] = useState(src || p3FallbackImage)
+  useEffect(() => setSource(src || p3FallbackImage), [src])
+  return <img {...props} src={source} alt={alt} onError={() => setSource((current) => current === p3FallbackImage ? current : p3FallbackImage)} />
+}
+
+function P3Logo({ light = false }) { return <a className={`logo ${light ? 'logo-light' : ''}`} href="/"><span className="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><span className="logo-copy"><strong>Upnorth.org</strong><small>EXPLORE · STAY · DO · BELONG</small></span></a> }
+
+function P3Header() { return <header className="site-header"><div className="header-inner"><P3Logo /><nav className="p3-nav"><a href="/things-to-do">Things To Do</a><a href="/stay">Places to Stay</a><a href="/eat-drink">Eat &amp; Drink</a><a href="/events">Events</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/pricing">List Your Business</a></nav><button className="plan-button" type="button" onClick={() => { window.location.href = '/ask' }}>Ask UpNorth</button></div></header> }
+
+function P3Footer() { return <footer className="site-footer"><div className="footer-inner"><P3Logo light /><div className="footer-links"><a href="/about">About</a><a href="/contact">Contact</a><a href="/pricing">List Your Business</a><a href="/events">Submit an Event</a><a href="/ask">Ask UpNorth</a><a href="/">Home</a></div><div className="footer-script">The North<br />Woods Call</div></div></footer> }
+
+function P3Shell({ children }) { return <div className="site-shell p3-shell"><P3Header />{children}<P3Footer /></div> }
+
+function P3ListingCard({ listing }) { return <article className="listing-card p3-listing-card"><a className="listing-image" href={`/listing/${listing.slug}`}><P3SafeImage src={listing.images[0]} alt={listing.name} />{listing.isFeatured && <span className="listing-badge featured">Featured</span>}{!listing.isFeatured && listing.isEnhanced && <span className="listing-badge enhanced">Enhanced</span>}</a><div className="listing-body"><div className="listing-category">{townBySlug[listing.town]?.name} · {listing.subtype}</div><h3><a href={`/listing/${listing.slug}`}>{listing.name}</a></h3><p className="listing-description">{listing.description}</p><div className="listing-bottom"><span className="listing-rating">★ 4.8</span><span className="listing-price">{listing.priceRange}</span></div><div className="listing-tags">{listing.tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div></div></article> }
+
+function AskPage() {
+  const queryParam = new URLSearchParams(window.location.search).get('q') || ''
+  const [query, setQuery] = useState(queryParam)
+  const [reply, setReply] = useState('')
+  const [picks, setPicks] = useState([])
+  const [loading, setLoading] = useState(false)
+  const runAsk = async (event) => { event?.preventDefault(); setLoading(true); const result = await askUpNorth(query); setReply(result.message); setPicks(result.picks); setLoading(false); window.history.replaceState({}, '', `/ask?q=${encodeURIComponent(query)}`) }
+  useEffect(() => { if (queryParam) runAsk() }, [])
+  return <P3Shell><main className="p3-main"><section className="route-banner p3-ask-banner"><div className="route-banner-overlay"></div><div className="route-banner-copy"><div className="breadcrumbs"><a href="/">Home</a><span><b>/</b>Ask UpNorth</span></div><h1>Ask UpNorth</h1><p>A little local help for your next Northwoods day.</p></div></section><section className="p3-content"><form className="hero-search p3-ask-form" onSubmit={runAsk}><span className="p3-search-symbol">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ask about a stay, a supper club, or your next trail..." aria-label="Ask UpNorth" /><button type="submit">{loading ? 'Thinking...' : 'Ask UpNorth'}</button></form>{reply && <section className="ask-answer"><h2>Here’s a place to start.</h2><p>{reply}</p></section>}{picks.length > 0 && <section className="ask-picks"><div className="p3-section-heading"><h2>Local picks for you</h2><span>{picks.length} matches</span></div><div className="listing-grid">{picks.map((listing) => <P3ListingCard listing={listing} key={listing.id} />)}</div></section>}</section></main></P3Shell>
+}
+
+function PricingPage() {
+  const [notice, setNotice] = useState(null)
+  const start = (tier) => { if (tier.id === 'free') { window.location.href = '/list-your-business?tier=free'; return }; const checkout = createCheckoutPlaceholder(tier.id); if (checkout.mode === 'ready') { setNotice('Stripe is configured for this tier. The next step would create a hosted Checkout Session.'); return }; setNotice('Online payment setup is almost ready — contact us to get listed today.') }
+  return <P3Shell><main className="p3-main"><section className="route-banner p3-pricing-banner"><div className="route-banner-overlay"></div><div className="route-banner-copy"><div className="breadcrumbs"><a href="/">Home</a><span><b>/</b>List Your Business</span></div><h1>Put your business up north.</h1><p>Choose the visibility that feels right for your Northwoods business.</p></div></section><section className="p3-content pricing-content"><div className="p3-section-heading centered"><h2>Business listing tiers</h2><p>Every tier starts with the same local, neighborly foundation.</p></div><div className="pricing-grid">{pricingTiers.map((tier) => <article className={`pricing-card ${tier.id === 'featured' ? 'pricing-featured' : ''}`} key={tier.id}>{tier.id === 'featured' && <span className="pricing-mark">Most visibility</span>}<h3>{tier.name}</h3><p className="pricing-price"><strong>{tier.price}</strong><span>{tier.cadence}</span></p><p className="pricing-summary">{tier.summary}</p><ul>{tier.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul><button className="detail-button" type="button" onClick={() => start(tier)}>{tier.cta}</button></article>)}</div></section></main>{notice && <div className="p3-modal-backdrop" role="dialog" aria-modal="true"><div className="p3-modal"><button className="p3-modal-close" type="button" onClick={() => setNotice(null)}>Close</button><h2>Almost ready</h2><p>{notice}</p><a className="detail-button" href="mailto:business@upnorth.org?subject=UpNorth.org%20listing">Contact us</a></div></div>}</P3Shell>
+}
+
+function BusinessFormPage() {
+  const params = new URLSearchParams(window.location.search)
+  const claimed = listingBySlug[params.get('claim')]
+  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({ businessName: claimed?.name || '', contactEmail: '', category: claimed?.category || 'stay', subtype: claimed?.subtype || '', town: claimed?.town || 'minocqua', address: claimed?.address || '', phone: claimed?.phone || '', website: claimed?.website || '', description: claimed?.description || '', tier: params.get('tier') || 'free', photo: '' })
+  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }))
+  const submit = async (event) => { event.preventDefault(); setSubmitting(true); setError(''); const entry = { ...form, id: `pending-${Date.now()}`, listingId: params.get('claim') || null, submissionType: claimed ? 'claim' : 'new' }; try { const result = await submitBusinessListing(entry); if (!result.ok) { const existing = JSON.parse(window.localStorage.getItem('upnorth-pending-listings') || '[]'); window.localStorage.setItem('upnorth-pending-listings', JSON.stringify([...existing, { ...entry, status: 'pending review' }])) }; setSubmitted(true) } catch { setError('We could not save your submission right now. Please try again.') } finally { setSubmitting(false) } }
+  if (submitted) return <P3Shell><main className="p3-main"><section className="p3-content"><div className="confirmation-card"><span className="confirmation-mark">✓</span><h1>Thanks for putting your business up north.</h1><p>Your listing is saved with status <strong>pending review</strong>. We’ll check the details and follow up soon.</p><a className="detail-button" href="/">Back to Upnorth.org</a></div></section></main></P3Shell>
+  return <P3Shell><main className="p3-main"><section className="route-banner p3-business-banner"><div className="route-banner-overlay"></div><div className="route-banner-copy"><div className="breadcrumbs"><a href="/">Home</a><span><b>/</b>List Your Business</span></div><h1>{claimed ? `Claim ${claimed.name}` : 'List Your Business'}</h1><p>Help visitors find the people, places, and local favorites that make the Northwoods special.</p></div></section><section className="p3-content"><form className="business-form" onSubmit={submit}><div className="p3-section-heading"><h2>Business details</h2><p>{claimed ? 'Review the details below and send your claim for review.' : 'A few practical details is all we need to get started.'}</p></div><div className="form-grid"><label>Business name<input required value={form.businessName} onChange={(event) => update('businessName', event.target.value)} /></label><label>Contact email<input required type="email" value={form.contactEmail} onChange={(event) => update('contactEmail', event.target.value)} placeholder="you@example.com" /></label><label>Town<select value={form.town} onChange={(event) => update('town', event.target.value)}>{towns.map((town) => <option value={town.slug} key={town.slug}>{town.name}</option>)}</select></label><label>Category<select value={form.category} onChange={(event) => update('category', event.target.value)}><option value="stay">Places to Stay</option><option value="eat-drink">Eat &amp; Drink</option><option value="things-to-do">Things To Do</option><option value="real-estate">Real Estate</option></select></label><label>Subtype<input required value={form.subtype} onChange={(event) => update('subtype', event.target.value)} placeholder="Cabin, restaurant, guide..." /></label><label>Address<input value={form.address} onChange={(event) => update('address', event.target.value)} placeholder="Street, town, state" /></label><label>Phone<input value={form.phone} onChange={(event) => update('phone', event.target.value)} placeholder="(715) 555-0100" /></label><label>Website<input type="url" value={form.website} onChange={(event) => update('website', event.target.value)} placeholder="https://" /></label><label>Tier<select value={form.tier} onChange={(event) => update('tier', event.target.value)}><option value="free">Free — $0/mo</option><option value="enhanced">Enhanced — $39/mo</option><option value="featured">Featured — $149/mo</option></select></label><label className="form-wide">Description<textarea required rows="5" value={form.description} onChange={(event) => update('description', event.target.value)} placeholder="Tell visitors what makes this place worth the drive." /></label><label className="form-wide photo-placeholder">Photos<div><span>Photo upload placeholder</span><small>Admin-approved image storage hooks are ready in Supabase Storage.</small></div></label></div><div className="form-actions"><button className="detail-button" type="submit" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit for review'}</button><a href="/pricing">Compare tiers</a><small>{error}</small></div></form></section></main></P3Shell>
+}
+
+function Part3App() { installSeo(); const path = window.location.pathname; if (path === '/ask') return <AskPage />; if (path === '/pricing') return <PricingPage />; return <BusinessFormPage /> }
+
+createRoot(document.getElementById('root')).render(<Part3App />)
