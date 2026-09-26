@@ -11,6 +11,7 @@ This documentation pack describes the UpNorth.org regional discovery website tha
 3. [Technical Handoff](./TECHNICAL-HANDOFF.md) — architecture, data model, integrations, environment variables, and operating notes.
 4. [QA and Release Checklist](./QA-AND-RELEASE.md) — tested behavior, current limitations, launch checklist, and sign-off fields.
 5. [Supabase Setup](./SUPABASE-SETUP.md) — admin provisioning, environment variables, migrations, RLS, storage, and newsletter provider setup.
+6. [Resend + Dynadot Setup](./RESEND-DYNADOT-SETUP.md) — safe domain provisioning, DNS automation, verification, and credential handling.
 
 ## Current status
 

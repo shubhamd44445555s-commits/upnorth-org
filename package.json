@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup:email:dry": "node scripts/setup-resend-dynadot.mjs",
+    "setup:email": "node scripts/setup-resend-dynadot.mjs --apply"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.4",
