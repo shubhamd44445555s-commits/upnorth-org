@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "setup:email:dry": "node scripts/setup-resend-dynadot.mjs",
-    "setup:email": "node scripts/setup-resend-dynadot.mjs --apply"
+    "setup:email": "node scripts/setup-resend-dynadot.mjs --apply",
+    "verify:email": "node scripts/setup-resend-dynadot.mjs --verify-only"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.4",

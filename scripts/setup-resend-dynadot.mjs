@@ -32,6 +32,7 @@ const resendApiKey = process.env.RESEND_API_KEY
 const dynadotApiKey = process.env.DYNADOT_API_KEY || process.env.DYNADOT_API_KEY_PRODUCTION_KEY
 const dynadotApiSecret = process.env.DYNADOT_API_SECRET || process.env.DYNADOT_API_KEY_SECRET_KEY
 const shouldApply = process.argv.includes('--apply')
+const shouldVerifyOnly = process.argv.includes('--verify-only')
 const hasConfirmation = process.env.RESEND_SETUP_CONFIRM === 'YES'
 
 function fail(message) {
@@ -194,13 +195,13 @@ async function addDynadotRecords(records) {
 }
 
 async function verifyResendDomain(domainData) {
-  if (!domainData?.id || !shouldApply) return
+  if (!domainData?.id || (!shouldApply && !shouldVerifyOnly)) return
 
   await resendRequest(`/domains/${domainData.id}/verify`, { method: 'POST' })
   const current = await loadResendDomain(domainData)
   console.log(`\nResend status after verification request: ${current.status || 'pending'}`)
   if (current.status !== 'verified') {
-    console.log('DNS propagation may take a while. Run this script again later with --apply to retry verification.')
+    console.log('DNS propagation may take a while. Run npm run verify:email later to retry verification.')
   }
 }
 
@@ -208,7 +209,9 @@ async function main() {
   if (!requireEnvironment()) return
 
   console.log(`UpNorth Resend + Dynadot setup for ${domain}`)
-  if (!shouldApply) {
+  if (shouldVerifyOnly) {
+    console.log('Mode: verify only (no DNS changes will be made)')
+  } else if (!shouldApply) {
     console.log('Mode: dry run (no domain or DNS changes will be made)')
   } else {
     console.log('Mode: APPLY — live DNS changes are enabled')
@@ -223,6 +226,11 @@ async function main() {
   const currentDomain = await loadResendDomain(domainData)
   if (currentDomain.status === 'verified') {
     console.log('\nResend already reports this domain as verified. No DNS changes are needed.')
+    return
+  }
+
+  if (shouldVerifyOnly) {
+    await verifyResendDomain(currentDomain)
     return
   }
 
