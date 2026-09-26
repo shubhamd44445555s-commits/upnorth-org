@@ -18,8 +18,8 @@ function requireEnvironment() {
   const missing = []
   if (!domain) missing.push('RESEND_DOMAIN')
   if (!resendApiKey) missing.push('RESEND_API_KEY')
-  if (!dynadotApiKey) missing.push('DYNADOT_API_KEY')
-  if (!dynadotApiSecret) missing.push('DYNADOT_API_SECRET')
+  if (shouldApply && !dynadotApiKey) missing.push('DYNADOT_API_KEY')
+  if (shouldApply && !dynadotApiSecret) missing.push('DYNADOT_API_SECRET')
 
   if (missing.length) {
     fail(`add these server-only variables to .env.local first: ${missing.join(', ')}`)
