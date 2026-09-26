@@ -1,5 +1,9 @@
 # UpNorth.org — Feature and Route Specification
 
+## Current implementation status — 27 September 2026
+
+The route set below is implemented with the existing UpNorth design system. Public content hydrates from Supabase when available and falls back to the bundled Northwoods data when necessary. The site is available for review at [upnorth-org-preview.vercel.app](https://upnorth-org-preview.vercel.app); the latest preview deployment is [available here](https://upnorth-org-preview-680gsfm04-shubhamd44445555s-9978s-projects.vercel.app).
+
 ## Route inventory
 
 | Route | Purpose | Status |
@@ -102,6 +106,25 @@ The current demo performs this ordering in the listing collection. Production bi
 - `/admin` is protected by the `profiles.role` value (`admin` or `editor`) and RLS.
 - Business submissions and claims can be approved or rejected from the dashboard; approvals publish or update the listing and write an audit log.
 - The `listing-images` Supabase Storage bucket is public-read and admin-write.
+
+## Server/API behavior
+
+| Endpoint | Purpose | Current status |
+|---|---|---|
+| `/api/ask` | Sends a bounded listing-candidate set to Groq and returns recommendation text/data | Implemented; local live-key test passed; Vercel environment variables still need configuration |
+| `/api/subscribe` | Persists newsletter subscribers and optionally syncs Brevo/Mailchimp | Implemented; Supabase persistence active; provider sync optional |
+
+The Vercel deployment uses the repository `vercel.json` SPA rewrite and root `api/` serverless functions. A plain local Vite server may use the frontend fallback because it does not execute Vercel functions automatically.
+
+## External integration status
+
+- Supabase schema, RLS, Auth, Storage, admin role, and moderation workflow: connected.
+- Groq Ask integration: connected in the local environment; deployment variables still pending.
+- Leaflet/OpenStreetMap maps: active; no Google Maps key required.
+- Resend/Dynadot for `glent.xyz`: DNS records applied and publicly visible; Resend verification pending.
+- Stripe pricing/payment: intentionally left as demo until client approval.
+- Final image assets: intentionally not replaced yet; remote images and fallback handling remain.
+- Custom-domain attachment, newsletter provider credentials, analytics, monitoring, and legal pages: pending launch hardening.
 
 ## Link and error expectations
 

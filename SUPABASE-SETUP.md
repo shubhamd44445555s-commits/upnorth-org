@@ -2,6 +2,15 @@
 
 The app now uses Supabase for published content, newsletter signups, contact messages, business submissions, claims, admin profiles, audit logs, and listing image storage.
 
+## Current provisioning status — 27 September 2026
+
+- Project: `upnorth-production` (`dkolvtfxgvgmrevjndlq`)
+- Migration: `supabase/migrations/20260926205711_upnorth_platform.sql` applied
+- Seed data: `supabase/seed.sql` applied for the initial towns, listings, and events
+- RLS/security: enabled; the Supabase security advisor returned no lints after the admin helper fix
+- Auth/admin: first admin profile provisioned; `/login` and `/admin` are available
+- Deployment: Vercel is live, but the project environment variables still need to be copied into Vercel before the hosted app can use the same Supabase-backed behavior as local development
+
 ## Environment variables
 
 Set these in local `.env.local` and in the Vercel project settings:
@@ -40,6 +49,8 @@ set email = excluded.email, role = 'admin';
 
 The dashboard is available at `/admin`. Only `admin` and `editor` roles can access it. Authorization is based on the `profiles.role` column and RLS, not editable user metadata.
 
+The first admin user has already been created for this project. Use the SQL above only when provisioning a new admin or recovering a role; do not create duplicate profiles manually.
+
 ## What the dashboard manages
 
 - Pending business submissions: approve creates a published listing; reject records the decision.
@@ -74,3 +85,9 @@ MAILCHIMP_SERVER_PREFIX=
 ## Migrations
 
 The generated migration is in `supabase/migrations/20260926205711_upnorth_platform.sql`. It contains the tables, RLS policies, private admin helper, audit log, and Storage policies.
+
+## Deployment checklist
+
+In the Vercel project, add the same non-secret Supabase URL and publishable key used locally, then redeploy. Keep any service-role key server-only and never use a `VITE_` prefix for it. After redeploying, check `/`, `/towns/minocqua`, `/listing/<slug>`, `/login`, and `/admin` while signed out and signed in.
+
+The current map implementation is Leaflet/OpenStreetMap, so no Google Maps API key is needed for this version.

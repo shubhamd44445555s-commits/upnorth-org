@@ -15,7 +15,15 @@ This documentation pack describes the UpNorth.org regional discovery website tha
 
 ## Current status
 
-The frontend and Supabase-backed workflows are implemented and the production build passes with `npm run build`. Stripe payments, final external image licensing, and production hosting credentials remain launch work.
+The frontend, Supabase-backed workflows, Groq server adapter, Leaflet maps, Vercel deployment, and moderation foundation are implemented. The production build passes with `npm run build`.
+
+Client-review links:
+
+- Stable deployment: [https://upnorth-org-preview.vercel.app](https://upnorth-org-preview.vercel.app)
+- Latest preview deployment: [https://upnorth-org-preview-680gsfm04-shubhamd44445555s-9978s-projects.vercel.app](https://upnorth-org-preview-680gsfm04-shubhamd44445555s-9978s-projects.vercel.app)
+- GitHub repository: [https://github.com/shubhamd44445555s-commits/upnorth-org](https://github.com/shubhamd44445555s-commits/upnorth-org)
+
+Still pending: Vercel environment variables, Stripe/pricing after client approval, final licensed image assets, Resend verification and sender activation for `glent.xyz`, newsletter/transactional provider activation, custom-domain attachment, legal copy, analytics, and monitoring.
 
 ## Important scope note
 
@@ -26,7 +34,7 @@ The original design direction is preserved. New functionality was added using th
 | Field | Value |
 |---|---|
 | Product | UpNorth.org |
-| Document pack | Client handoff v1.0 |
-| Prepared | 26 September 2026 |
-| Status | Demo complete; production hardening pending |
+| Document pack | Client handoff v1.1 |
+| Prepared | 27 September 2026 |
+| Status | Client-review deployment live; production hardening pending |
 | Owner | UpNorth.org project team |

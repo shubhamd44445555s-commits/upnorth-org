@@ -2,9 +2,9 @@
 
 ## 1. Current QA status
 
-The current implementation has passed a production build with `npm run build`. Functional browser QA covered public routes, Supabase-backed content reads, Leaflet maps, login/admin route states, the Ask flow, pricing modal, claim prefill, business submission confirmation, homepage Ask redirect, newsletter fallback, metadata, sitemap/robots responses, and mobile overflow checks.
+The current implementation has passed a production build with `npm run build`. Functional browser QA covered public routes, Supabase-backed content reads, Leaflet maps, login/admin route states, the Ask flow, pricing modal, claim prefill, business submission confirmation, homepage Ask redirect, newsletter persistence, metadata, sitemap/robots responses, and mobile overflow checks.
 
-The project is ready for client review. It should not be treated as fully production-ready until the external integrations and persistent backend are connected.
+The project is deployed for client review at [upnorth-org-preview.vercel.app](https://upnorth-org-preview.vercel.app) and a preview deployment also returned HTTP 200. Supabase schema/RLS/Auth/admin workflows are connected. The project is not yet fully production-ready because Vercel environment variables, final image assets, Stripe, email provider activation, custom domain, legal, analytics, and monitoring remain.
 
 ## 2. Verified demo journeys
 
@@ -32,6 +32,11 @@ The project is ready for client review. It should not be treated as fully produc
 | Admin login route render | Passed |
 | Protected `/admin` redirect when signed out | Passed |
 | Supabase security advisors | Passed — no lints |
+| Groq API request from local environment | Passed — HTTP 200 with configured model |
+| Vercel stable deployment | Passed — HTTP 200 and UpNorth content present |
+| Vercel preview deployment | Passed — HTTP 200 and UpNorth content present |
+| Resend/Dynadot DNS lookup for `glent.xyz` | Passed — required TXT/CNAME records visible |
+| Resend domain verification | Pending — Resend still reports `pending` after DNS application |
 
 ## 3. Client acceptance checklist
 
@@ -64,15 +69,15 @@ The project is ready for client review. It should not be treated as fully produc
 
 ## 4. Production readiness checklist
 
-- [ ] Choose hosting platform and configure SPA rewrites.
-- [ ] Configure production environment secrets.
-- [ ] Connect database/CMS and migrate approved demo content.
+- [x] Choose hosting platform and configure SPA rewrites — Vercel and `vercel.json`.
+- [ ] Configure production environment secrets in Vercel.
+- [x] Connect database foundation and migrate seed content — Supabase schema/RLS applied.
 - [ ] Connect image storage/CDN and replace remote demo images.
 - [ ] Connect Stripe checkout, subscriptions, and signed webhooks.
-- [ ] Connect AI provider through a server-side proxy.
+- [x] Connect AI provider through a server-side proxy — Groq `/api/ask` locally verified.
 - [ ] Connect newsletter and transactional email providers.
-- [ ] Connect map provider and decide whether API key restrictions are required.
-- [ ] Create admin review workflow for listings, claims, and events.
+- [x] Connect map provider — Leaflet/OpenStreetMap is active; Google Maps is not required.
+- [x] Create admin review workflow for listings, claims, and events.
 - [ ] Add analytics and conversion events.
 - [ ] Add privacy policy, terms, cookie disclosure, and accessibility statement as required.
 - [ ] Configure monitoring, error tracking, backups, and rollback procedure.
@@ -94,10 +99,12 @@ Security, privacy, analytics, content verification, domain, redirects, and rollb
 
 ## 6. Known limitations
 
-- Stripe pricing remains a demo until client approval and Stripe keys/webhooks are configured.
+- Stripe pricing remains intentionally demo-only until client approval and Stripe keys/webhooks are configured.
 - Newsletter provider sync remains optional; Supabase persistence is active.
 - Leaflet/OpenStreetMap is active; Google Maps is not required for the current map implementation.
 - Remote photos should be replaced or cleared for licensing and long-term reliability.
+- Resend/Dynadot DNS is applied for `glent.xyz`, but Resend verification and sender activation are still pending.
+- Vercel deployment exists, but Vercel runtime environment variables and `glent.xyz` custom-domain attachment are not complete.
 - Visual screenshot capture may depend on the local Windows browser/ACL environment, even though functional build and browser checks pass.
 
 ## 7. Sign-off

@@ -6,6 +6,21 @@ UpNorth.org is a regional discovery platform for Wisconsin Northwoods visitors, 
 
 The product is designed to help a visitor move from inspiration to a practical plan: discover a town, browse relevant listings, understand nearby options, ask for recommendations, and contact or claim a business listing.
 
+## 1A. Current delivery status — 27 September 2026
+
+The original UpNorth.org visual direction is implemented and preserved. The public React/Vite site is deployed for client review at [upnorth-org-preview.vercel.app](https://upnorth-org-preview.vercel.app), with the latest preview available at [the current Vercel preview](https://upnorth-org-preview-680gsfm04-shubhamd44445555s-9978s-projects.vercel.app).
+
+Current production-shaped foundation:
+
+- Supabase is connected for published towns, listings, events, contact messages, newsletter subscribers, submissions, claims, profiles, audit logs, and listing image storage.
+- Supabase Auth and the protected `/admin` moderation dashboard are active; admin/editor access is enforced through profiles and RLS.
+- `/api/ask` uses Groq server-side when configured and safely falls back to the local recommendation experience when the deployment has no AI environment variables.
+- Leaflet/OpenStreetMap is the active map implementation, so Google Maps billing and API keys are not required for the current version.
+- Vercel build configuration and SPA rewrites are present; deployment environment variables still need to be configured for full live Supabase/Groq behavior.
+- Resend/Dynadot DNS setup for `glent.xyz` has been applied and DNS records are visible; Resend verification is still pending.
+
+Intentionally deferred until client approval or final content approval: Stripe pricing/payment, real licensed image replacement, production newsletter/transactional email provider activation, custom-domain attachment, and final legal/analytics/monitoring setup.
+
 ## 2. Product vision
 
 Make it easy to discover, plan, and remember time Up North — from a weekend getaway to a new place to live or do business.
@@ -72,13 +87,13 @@ List Your Business → choose submission or claim flow → prefilled listing det
 - Discovery cards for outdoor experiences, stays, local food, and charming towns.
 - Events and town discovery sections.
 - Weekend highlights and featured business content.
-- Newsletter signup with a demo-safe fallback.
+- Newsletter signup persists to Supabase and shows a confirmation state; optional Brevo/Mailchimp synchronization remains configurable.
 - Responsive layout for desktop and mobile widths.
 
 ### About and contact
 
 - `/about` explains the UpNorth.org story, local perspective, and regional mission using the existing editorial visual language.
-- `/contact` provides contact details, business/event context, and a responsive inquiry form with a demo confirmation state.
+- `/contact` provides contact details, business/event context, and a responsive inquiry form that persists messages to Supabase and shows a confirmation state.
 
 ### Town discovery
 
@@ -104,13 +119,13 @@ Listing detail pages include a photo gallery/lightbox behavior, name, category, 
 
 - `/list-your-business` submission flow.
 - Claim links prefilled with the listing slug.
-- Demo review confirmation state.
+- Supabase-backed submission and claim requests with admin/editor review, approval, rejection, and audit-log behavior.
 - `/pricing` page describing Free, Enhanced, and Featured visibility tiers.
 - Demo checkout modal where Stripe has not yet been connected.
 
 ### Ask Up North
 
-`/ask` provides prompt cards for common trip-planning questions and a recommendation response experience. It currently operates safely in demo mode when no live AI key is configured.
+`/ask` provides prompt cards for common trip-planning questions and a recommendation response experience. The server adapter calls Groq with published listing candidates when configured, and the frontend retains a safe fallback when a deployment has no AI key.
 
 ### SEO and discoverability
 
@@ -120,7 +135,7 @@ Listing detail pages include a photo gallery/lightbox behavior, name, category, 
 
 ## 7. Content and data requirements
 
-The product uses shared mock data for listings, events, and towns. Listings support the following key properties:
+The product uses Supabase as the primary source for published listings, events, and towns, with shared static data retained as a safe fallback for local development or temporary service unavailability. Listings support the following key properties:
 
 - identity: `id`, `slug`, `name`
 - classification: `category`, `subtype`, `town`
@@ -144,7 +159,7 @@ The demo data is written to feel Northwoods-specific. Before launch, business ow
 - Live inventory, reservation, ticketing, or real-estate MLS feeds.
 - User accounts and saved itineraries.
 - Reviews, ratings moderation, and user-generated photo uploads.
-- Fully operational admin CMS.
+- Full editorial CMS capabilities beyond the implemented moderation dashboard.
 - Production billing reconciliation and subscription management.
 - Guaranteed event freshness without an editorial workflow.
 
@@ -153,8 +168,8 @@ The demo data is written to feel Northwoods-specific. Before launch, business ow
 - Visitors can find a relevant listing in three interactions or fewer from the homepage.
 - Every published listing has verified contact and location information.
 - Business submission and claim requests reach an internal review queue.
-- Newsletter signups reach the chosen email provider.
-- Paid listing upgrades complete through Stripe and are reflected in listing visibility.
+- Newsletter signups persist reliably and reach the chosen provider once provider credentials and sender approval are configured.
+- Paid listing upgrades complete through Stripe and are reflected in listing visibility after client approval and webhook implementation.
 - Analytics can measure searches, filter use, listing views, claim starts, submissions, and conversions.
 
 ## 11. Open product decisions
@@ -163,4 +178,9 @@ The demo data is written to feel Northwoods-specific. Before launch, business ow
 - Content ownership and review SLA for listings and events.
 - Launch region boundaries beyond the nine initial towns.
 - Final pricing, billing cadence, tax handling, and refund policy.
-- Choice of database, authentication, CMS, email provider, AI provider, and maps provider.
+- Database/authentication: Supabase with email/password Auth and RLS.
+- AI: Groq through the server-side `/api/ask` adapter.
+- Maps: Leaflet/OpenStreetMap; Google Maps is not required for the current implementation.
+- Hosting: Vercel with SPA rewrites and root serverless API functions.
+- Email: Resend domain setup for `glent.xyz` is in progress; newsletter provider and transactional sender behavior still require final configuration.
+- Remaining decisions: final photography/license plan, exact email/newsletter provider, Stripe pricing and billing policy, analytics/monitoring, legal copy, and whether `glent.xyz` should become the testing custom domain.
