@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "setup:email:dry": "node --env-file=.env.local scripts/setup-resend-dynadot.mjs",
-    "setup:email": "node --env-file=.env.local scripts/setup-resend-dynadot.mjs --apply"
+    "setup:email:dry": "node scripts/setup-resend-dynadot.mjs",
+    "setup:email": "node scripts/setup-resend-dynadot.mjs --apply"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.57.4",

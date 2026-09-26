@@ -1,11 +1,36 @@
 import crypto from 'node:crypto'
+import fs from 'node:fs'
 
 const RESEND_API_BASE = 'https://api.resend.com'
 const DYNADOT_API_BASE = process.env.DYNADOT_API_BASE_URL || 'https://api.dynadot.com'
+
+function loadLocalEnvironment() {
+  if (process.env.CI || !fs.existsSync('.env.local')) return
+
+  const values = new Map()
+  const lines = fs.readFileSync('.env.local', 'utf8').split(/\r?\n/)
+  for (const line of lines) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/)
+    if (!match) continue
+
+    let value = match[2].trim()
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1)
+    }
+    values.set(match[1], value)
+  }
+
+  for (const [key, value] of values) {
+    if (process.env[key] === undefined) process.env[key] = value
+  }
+}
+
+loadLocalEnvironment()
+
 const domain = (process.env.RESEND_DOMAIN || '').trim().toLowerCase()
 const resendApiKey = process.env.RESEND_API_KEY
-const dynadotApiKey = process.env.DYNADOT_API_KEY
-const dynadotApiSecret = process.env.DYNADOT_API_SECRET
+const dynadotApiKey = process.env.DYNADOT_API_KEY || process.env.DYNADOT_API_KEY_PRODUCTION_KEY
+const dynadotApiSecret = process.env.DYNADOT_API_SECRET || process.env.DYNADOT_API_KEY_SECRET_KEY
 const shouldApply = process.argv.includes('--apply')
 const hasConfirmation = process.env.RESEND_SETUP_CONFIRM === 'YES'
 
