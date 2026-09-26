@@ -185,8 +185,8 @@ async function addDynadotRecords(records) {
   for (const record of records) {
     const item = toDynadotRecord(record)
     const body = record.host
-      ? { dns_sub_list: [{ sub_host: record.host, ...item }] }
-      : { dns_main_list: [item] }
+      ? { sub_list: [{ sub_host: record.host, ...item }], add_dns_to_current_setting: true }
+      : { dns_main_list: [item], add_dns_to_current_setting: true }
 
     console.log(`Adding Dynadot ${record.type.toUpperCase()} ${record.name || domain}`)
     await dynadotRequest(path, body)
