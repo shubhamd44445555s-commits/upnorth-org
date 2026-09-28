@@ -50,7 +50,7 @@ async function loadCandidates() {
     if (!error && data?.length) return data.map(mapListingRow)
   }
 
-  return (await import('../src/data/listings.ts')).listings
+  return (await import('../src/data/listings.js')).listings
 }
 
 async function askGroq(query) {
