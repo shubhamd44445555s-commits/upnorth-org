@@ -1,5 +1,5 @@
-import { listings } from '../data/listings'
-import { townBySlug } from '../data/towns'
+import { listings } from '../data/listings.js'
+import { townBySlug } from '../data/towns.js'
 
 const normalize = (value) => value.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9\s-]/g, ' ')
 
