@@ -16,10 +16,10 @@ Current production-shaped foundation:
 - Supabase Auth and the protected `/admin` moderation dashboard are active; admin/editor access is enforced through profiles and RLS.
 - `/api/ask` uses Groq server-side when configured and safely falls back to the local recommendation experience when the deployment has no AI environment variables.
 - Leaflet/OpenStreetMap is the active map implementation, so Google Maps billing and API keys are not required for the current version.
-- Vercel build configuration and SPA rewrites are present; deployment environment variables still need to be configured for full live Supabase/Groq behavior.
+- Vercel build configuration, SPA rewrites, security headers, and the `glent.xyz` testing custom domain are live; deployment environment variables still need to be configured for full live Supabase/Groq behavior.
 - Resend/Dynadot DNS setup for `glent.xyz` has been applied and DNS records are visible; Resend verification is still pending.
 
-Intentionally deferred until client approval or final content approval: Stripe pricing/payment, real licensed image replacement, production newsletter/transactional email provider activation, custom-domain attachment, and final legal/analytics/monitoring setup.
+Intentionally deferred until client approval or final content approval: Stripe pricing/payment, real licensed image replacement, production newsletter/transactional email provider activation, and final legal/analytics/monitoring setup.
 
 ## 2. Product vision
 
@@ -182,5 +182,5 @@ The demo data is written to feel Northwoods-specific. Before launch, business ow
 - AI: Groq through the server-side `/api/ask` adapter.
 - Maps: Leaflet/OpenStreetMap; Google Maps is not required for the current implementation.
 - Hosting: Vercel with SPA rewrites and root serverless API functions.
-- Email: Resend domain setup for `glent.xyz` is in progress; newsletter provider and transactional sender behavior still require final configuration.
-- Remaining decisions: final photography/license plan, exact email/newsletter provider, Stripe pricing and billing policy, analytics/monitoring, legal copy, and whether `glent.xyz` should become the testing custom domain.
+- Email: Resend DNS setup for `glent.xyz` is applied, but Resend sender verification is still pending; newsletter provider and transactional sender behavior require final configuration.
+- Remaining decisions: final photography/license plan, exact email/newsletter provider, Stripe pricing and billing policy, analytics/monitoring, and legal copy. `glent.xyz` is selected and live as the testing custom domain.

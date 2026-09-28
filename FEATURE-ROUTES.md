@@ -124,6 +124,7 @@ The Vercel deployment uses the repository `vercel.json` SPA rewrite and root `ap
 - Groq Ask integration: connected in the local environment; deployment variables still pending.
 - Leaflet/OpenStreetMap maps: active; no Google Maps key required.
 - Resend/Dynadot for `glent.xyz`: DNS records applied and publicly visible; Resend verification pending.
+- Vercel `glent.xyz` testing custom domain: live over HTTPS and returning the UpNorth application.
 - Stripe pricing/payment: intentionally left as demo until client approval.
 - Final image assets: intentionally not replaced yet; remote images and fallback handling remain.
 - Custom-domain attachment, newsletter provider credentials, analytics, monitoring, and legal pages: pending launch hardening.

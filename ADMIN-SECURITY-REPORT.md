@@ -87,7 +87,7 @@ Only `super_admin` receives `admins.manage`. Self-role changes are blocked in bo
 - The in-memory rate limiter is per serverless instance and is not a distributed production limiter.
 - Failed login events cannot be reliably captured by the current direct Supabase Auth browser flow; successful admin operations are auditable.
 - The current panel covers moderation, listing/event visibility, users/roles, audit and security feeds. Full CMS modules for articles, categories, real-estate editing, media metadata, AI settings, site settings and feature flags remain staged extensions.
-- Production Vercel environment variables, final content, real images, email verification, Stripe, analytics, monitoring, legal pages and custom-domain configuration remain separate launch work.
+- Production Vercel environment variables, final content, real images, email verification, Stripe, analytics, monitoring, and legal pages remain separate launch work. The `glent.xyz` Vercel testing custom domain is live.
 
 ## Deployment requirements
 

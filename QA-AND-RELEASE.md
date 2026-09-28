@@ -4,7 +4,7 @@
 
 The current implementation has passed a production build with `npm run build`. Functional browser QA covered public routes, Supabase-backed content reads, Leaflet maps, login/admin route states, the Ask flow, pricing modal, claim prefill, business submission confirmation, homepage Ask redirect, newsletter persistence, metadata, sitemap/robots responses, and mobile overflow checks.
 
-The project is deployed for client review at [upnorth-org-preview.vercel.app](https://upnorth-org-preview.vercel.app) and a preview deployment also returned HTTP 200. Supabase schema/RLS/Auth/admin workflows are connected. The project is not yet fully production-ready because Vercel environment variables, final image assets, Stripe, email provider activation, custom domain, legal, analytics, and monitoring remain.
+The project is deployed for client review at [upnorth-org-preview.vercel.app](https://upnorth-org-preview.vercel.app) and the `glent.xyz` testing custom domain also returns HTTP 200 over HTTPS. Supabase schema/RLS/Auth/admin workflows are connected. The project is not yet fully production-ready because Vercel environment variables, final image assets, Stripe, email provider activation, legal, analytics, and monitoring remain.
 
 ## 2. Verified demo journeys
 
@@ -35,6 +35,7 @@ The project is deployed for client review at [upnorth-org-preview.vercel.app](ht
 | Groq API request from local environment | Passed — HTTP 200 with configured model |
 | Vercel stable deployment | Passed — HTTP 200 and UpNorth content present |
 | Vercel preview deployment | Passed — HTTP 200 and UpNorth content present |
+| Vercel `glent.xyz` custom domain | Passed — HTTPS HTTP 200 and UpNorth content present |
 | Resend/Dynadot DNS lookup for `glent.xyz` | Passed — required TXT/CNAME records visible |
 | Resend domain verification | Pending — Resend still reports `pending` after DNS application |
 | Secure admin payload/permission tests | Passed — `npm run test:security` |
@@ -109,7 +110,7 @@ Security, privacy, analytics, content verification, domain, redirects, and rollb
 - Leaflet/OpenStreetMap is active; Google Maps is not required for the current map implementation.
 - Remote photos should be replaced or cleared for licensing and long-term reliability.
 - Resend/Dynadot DNS is applied for `glent.xyz`, but Resend verification and sender activation are still pending.
-- Vercel deployment exists, but Vercel runtime environment variables and `glent.xyz` custom-domain attachment are not complete.
+- Vercel deployment and `glent.xyz` custom-domain attachment are complete, but Vercel runtime environment variables are not complete.
 - The secure admin migration is present in the repository but is not confirmed as applied to the remote database yet.
 - MFA/TOTP and active-session management are not implemented as production claims.
 - Visual screenshot capture may depend on the local Windows browser/ACL environment, even though functional build and browser checks pass.

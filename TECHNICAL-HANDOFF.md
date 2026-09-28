@@ -111,7 +111,7 @@ The repository includes `vercel.json` for Vite output and SPA rewrites. The root
 
 Current deployment and remaining launch work:
 
-- HTTPS and custom domain; the Vercel URL is active, while `glent.xyz` is not attached as a Vercel custom domain yet.
+- HTTPS and custom domain; `glent.xyz` is attached to the Vercel project and live over HTTPS.
 - Environment secrets configured in the host; this is still pending.
 - Apply `supabase/migrations/20260928120000_secure_admin_panel.sql` before enabling the extended permission/security feeds.
 - Build command `npm run build`.

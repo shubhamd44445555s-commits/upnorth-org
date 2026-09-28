@@ -24,7 +24,7 @@ Client-review links:
 - Latest preview deployment: [https://upnorth-org-preview-680gsfm04-shubhamd44445555s-9978s-projects.vercel.app](https://upnorth-org-preview-680gsfm04-shubhamd44445555s-9978s-projects.vercel.app)
 - GitHub repository: [https://github.com/shubhamd44445555s-commits/upnorth-org](https://github.com/shubhamd44445555s-commits/upnorth-org)
 
-Still pending: Vercel environment variables, Stripe/pricing after client approval, final licensed image assets, Resend verification and sender activation for `glent.xyz`, newsletter/transactional provider activation, custom-domain attachment, legal copy, analytics, and monitoring.
+Still pending: Vercel environment variables, Stripe/pricing after client approval, final licensed image assets, Resend verification and sender activation for `glent.xyz`, newsletter/transactional provider activation, legal copy, analytics, and monitoring. The `glent.xyz` Vercel testing custom domain is live.
 
 ## Important scope note
 
