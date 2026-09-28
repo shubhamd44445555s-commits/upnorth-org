@@ -39,7 +39,7 @@ function bindHomepageForms() {
 
 if (window.location.pathname === '/login' || window.location.pathname === '/admin') {
   installSeo()
-  import('./admin-panel.jsx')
+  import('./admin-panel-secure.jsx')
 } else if (part3Paths.includes(window.location.pathname)) {
   import('./part3-app.jsx')
 } else {

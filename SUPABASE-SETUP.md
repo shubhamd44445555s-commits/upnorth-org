@@ -10,6 +10,7 @@ The app now uses Supabase for published content, newsletter signups, contact mes
 - RLS/security: enabled; the Supabase security advisor returned no lints after the admin helper fix
 - Auth/admin: first admin profile provisioned; `/login` and `/admin` are available
 - Deployment: Vercel is live, but the project environment variables still need to be copied into Vercel before the hosted app can use the same Supabase-backed behavior as local development
+- Secure admin migration: `supabase/migrations/20260928120000_secure_admin_panel.sql` added to the repository; apply it once in Supabase SQL Editor before using granular roles and security-event feeds
 
 ## Environment variables
 
@@ -91,3 +92,7 @@ The generated migration is in `supabase/migrations/20260926205711_upnorth_platfo
 In the Vercel project, add the same non-secret Supabase URL and publishable key used locally, then redeploy. Keep any service-role key server-only and never use a `VITE_` prefix for it. After redeploying, check `/`, `/towns/minocqua`, `/listing/<slug>`, `/login`, and `/admin` while signed out and signed in.
 
 The current map implementation is Leaflet/OpenStreetMap, so no Google Maps API key is needed for this version.
+
+## Secure admin roles
+
+The secure admin panel supports `super_admin`, `admin`, `editor`, `moderator`, `business_manager`, `viewer`, and `business_owner`. Roles are read from `profiles` and enforced by `/api/admin` plus RLS. The browser must never be used to grant a role. Only `super_admin` can manage administrator roles, and self-role changes are blocked.

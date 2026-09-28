@@ -37,6 +37,8 @@ The project is deployed for client review at [upnorth-org-preview.vercel.app](ht
 | Vercel preview deployment | Passed — HTTP 200 and UpNorth content present |
 | Resend/Dynadot DNS lookup for `glent.xyz` | Passed — required TXT/CNAME records visible |
 | Resend domain verification | Pending — Resend still reports `pending` after DNS application |
+| Secure admin payload/permission tests | Passed — `npm run test:security` |
+| Admin API JavaScript syntax | Passed — `node --check` |
 
 ## 3. Client acceptance checklist
 
@@ -78,6 +80,9 @@ The project is deployed for client review at [upnorth-org-preview.vercel.app](ht
 - [ ] Connect newsletter and transactional email providers.
 - [x] Connect map provider — Leaflet/OpenStreetMap is active; Google Maps is not required.
 - [x] Create admin review workflow for listings, claims, and events.
+- [ ] Apply the additive secure admin migration in the remote Supabase project.
+- [x] Add server-side admin API validation and role/permission checks.
+- [x] Add audit/security views and self-escalation protections in code.
 - [ ] Add analytics and conversion events.
 - [ ] Add privacy policy, terms, cookie disclosure, and accessibility statement as required.
 - [ ] Configure monitoring, error tracking, backups, and rollback procedure.
@@ -105,6 +110,8 @@ Security, privacy, analytics, content verification, domain, redirects, and rollb
 - Remote photos should be replaced or cleared for licensing and long-term reliability.
 - Resend/Dynadot DNS is applied for `glent.xyz`, but Resend verification and sender activation are still pending.
 - Vercel deployment exists, but Vercel runtime environment variables and `glent.xyz` custom-domain attachment are not complete.
+- The secure admin migration is present in the repository but is not confirmed as applied to the remote database yet.
+- MFA/TOTP and active-session management are not implemented as production claims.
 - Visual screenshot capture may depend on the local Windows browser/ACL environment, even though functional build and browser checks pass.
 
 ## 7. Sign-off

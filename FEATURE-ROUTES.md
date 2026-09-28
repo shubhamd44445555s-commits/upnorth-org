@@ -31,7 +31,7 @@ The route set below is implemented with the existing UpNorth design system. Publ
 | `/pricing` | Business visibility plans | Implemented |
 | `/list-your-business` | Submit or claim a listing | Implemented |
 | `/login` | Supabase Auth admin login | Implemented |
-| `/admin` | Protected moderation dashboard | Implemented |
+| `/admin` | Protected master admin panel and moderation dashboard | Implemented foundation |
 
 ## Reusable UI patterns
 
@@ -106,6 +106,8 @@ The current demo performs this ordering in the listing collection. Production bi
 - `/admin` is protected by the `profiles.role` value (`admin` or `editor`) and RLS.
 - Business submissions and claims can be approved or rejected from the dashboard; approvals publish or update the listing and write an audit log.
 - The `listing-images` Supabase Storage bucket is public-read and admin-write.
+
+The secure admin foundation also provides role-aware views for overview statistics, users/roles, audit logs, and security events. The server-side `/api/admin` endpoint rechecks authentication, permissions, validation, and business rules for every action.
 
 ## Server/API behavior
 

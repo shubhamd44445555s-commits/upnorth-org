@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:security": "node scripts/test-admin-security.mjs",
     "setup:email:dry": "node scripts/setup-resend-dynadot.mjs",
     "setup:email": "node scripts/setup-resend-dynadot.mjs --apply",
     "verify:email": "node scripts/setup-resend-dynadot.mjs --verify-only"

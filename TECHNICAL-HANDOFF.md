@@ -28,6 +28,8 @@ Supabase is the primary content system for towns, listings, events, business sub
 
 Server-compatible Vercel adapters exist for the Ask and newsletter flows. Ask calls Groq through `/api/ask` and uses published Supabase listings as candidates. `/api/subscribe` persists subscribers and can sync Brevo or Mailchimp when configured. A local Groq request has returned HTTP 200 with the configured model. The browser falls back to Supabase/direct demo behavior when server functions are not available locally.
 
+The secure admin adapter at `/api/admin` verifies the Supabase bearer token, reads the trusted `profiles.role`, checks a server-side permission map, validates each action payload, performs allowed mutations, and writes audit/security events. Direct browser mutations were removed from the active admin panel; Supabase RLS remains an independent enforcement layer.
+
 Important: a plain Vite dev server does not automatically execute server adapters under `/api`. Production hosting must provide compatible serverless/function routing, or the adapters must be moved into the selected backend framework.
 
 ## 5. Current architecture
@@ -86,6 +88,9 @@ Implemented core tables:
 - `audit_logs`
 - `newsletter_subscribers`
 - `contact_messages`
+- `admin_permissions`
+- `admin_role_permissions`
+- `security_events`
 
 Listings should store a normalized town reference, publication state, paid visibility tier, verified contact fields, and timestamps. Images should be stored through a managed media service with rights metadata and alt text.
 
@@ -93,6 +98,7 @@ Listings should store a normalized town reference, publication state, paid visib
 
 - Keep API secrets server-side.
 - Validate and rate-limit public submission, claim, newsletter, and AI endpoints.
+- Validate and rate-limit admin actions through `/api/admin`.
 - Add spam protection to forms.
 - Verify Stripe webhook signatures.
 - Sanitize rich text and uploaded media metadata.
@@ -107,6 +113,7 @@ Current deployment and remaining launch work:
 
 - HTTPS and custom domain; the Vercel URL is active, while `glent.xyz` is not attached as a Vercel custom domain yet.
 - Environment secrets configured in the host; this is still pending.
+- Apply `supabase/migrations/20260928120000_secure_admin_panel.sql` before enabling the extended permission/security feeds.
 - Build command `npm run build`.
 - Static output directory `dist`.
 - SPA fallback/rewrite to `index.html` for client-side routes.

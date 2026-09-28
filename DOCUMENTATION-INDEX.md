@@ -12,6 +12,7 @@ This documentation pack describes the UpNorth.org regional discovery website tha
 4. [QA and Release Checklist](./QA-AND-RELEASE.md) — tested behavior, current limitations, launch checklist, and sign-off fields.
 5. [Supabase Setup](./SUPABASE-SETUP.md) — admin provisioning, environment variables, migrations, RLS, storage, and newsletter provider setup.
 6. [Resend + Dynadot Setup](./RESEND-DYNADOT-SETUP.md) — safe domain provisioning, DNS automation, verification, and credential handling.
+7. [Secure Admin Panel Report](./ADMIN-SECURITY-REPORT.md) — architecture inspection, files, roles, permissions, RLS, security controls, tests, and production limitations.
 
 ## Current status
 
@@ -34,7 +35,7 @@ The original design direction is preserved. New functionality was added using th
 | Field | Value |
 |---|---|
 | Product | UpNorth.org |
-| Document pack | Client handoff v1.1 |
-| Prepared | 27 September 2026 |
-| Status | Client-review deployment live; production hardening pending |
+| Document pack | Client handoff v1.2 |
+| Prepared | 28 September 2026 |
+| Status | Secure admin foundation added; remote migration and production hardening pending |
 | Owner | UpNorth.org project team |

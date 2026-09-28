@@ -21,5 +21,5 @@ export async function getProfile(userId) {
 }
 
 export function isAdminProfile(profile) {
-  return profile?.role === 'admin' || profile?.role === 'editor'
+  return ['super_admin', 'admin', 'editor', 'moderator', 'business_manager', 'viewer'].includes(profile?.role)
 }
