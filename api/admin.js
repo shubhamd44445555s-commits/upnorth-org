@@ -22,9 +22,9 @@ function getBearerToken(req) {
 
 function getRequestBody(req) {
   if (!req.body) return {}
-  if (typeof req.body === 'object') return req.body
-  if (typeof req.body !== 'string' || req.body.length > 12000) throw new Error('Request body is invalid.')
-  try { return JSON.parse(req.body) } catch { throw new Error('Request body is invalid.') }
+  if (typeof req.body === 'object' && !Array.isArray(req.body)) return req.body
+  if (typeof req.body !== 'string' || req.body.length > 12000) throw Object.assign(new Error('Request body is invalid.'), { status: 400 })
+  try { return JSON.parse(req.body) } catch { throw Object.assign(new Error('Request body is invalid.'), { status: 400 }) }
 }
 
 function enforceSameOrigin(req) {
@@ -427,7 +427,9 @@ export default async function handler(req, res) {
     enforceSameOrigin(req)
     const body = getRequestBody(req)
     const action = typeof body.action === 'string' ? body.action.trim() : ''
-    const input = validateAdminPayload(action, body)
+    if (!action) throw Object.assign(new Error('Admin action is required.'), { status: 400 })
+    let input
+    try { input = validateAdminPayload(action, body) } catch (error) { if (!Number.isInteger(error?.status)) error.status = 400; throw error }
     const auth = await requireAdmin(req, action)
     const { client, user, profile, permissions } = auth
 

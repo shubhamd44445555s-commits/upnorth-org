@@ -211,7 +211,7 @@ function validatePublicSetting(key, value) {
 }
 
 export function validateAdminPayload(action, body = {}) {
-  if (!isKnownAction(action)) throw new Error('Admin action is invalid.')
+  if (!isKnownAction(action)) throw Object.assign(new Error('Admin action is invalid.'), { status: 400 })
 
   if (action === 'media_delete') return { path: cleanText(body.path, 'path', 500) }
   if (action === 'delete_article' || action === 'delete_category' || action === 'revoke_user_sessions') return { id: cleanId(body.id) }
