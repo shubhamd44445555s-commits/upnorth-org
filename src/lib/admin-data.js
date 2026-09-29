@@ -132,6 +132,10 @@ export async function updateSiteSettings(settings) {
   await adminRequest('update_settings', { settings })
 }
 
+export async function updatePublicSiteSettings(settings) {
+  await adminRequest('update_public_site_settings', { settings })
+}
+
 export async function loadFeatureFlags() {
   const result = await adminRequest('feature_flags')
   return result.flags || []

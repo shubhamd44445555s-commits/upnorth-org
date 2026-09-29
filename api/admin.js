@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   canRole,
   cleanId,
+  isPublicSiteSettingKey,
   permissionForAction,
   permissionsForRole,
   validateAdminPayload,
@@ -482,7 +483,8 @@ export default async function handler(req, res) {
         supabaseConfigured: Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) && Boolean(process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY),
         groqConfigured: Boolean(process.env.GROQ_API_KEY),
         groqModel: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
-        resendConfigured: Boolean(process.env.RESEND_API_KEY),
+        resendConfigured: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
+        supabaseServiceRoleConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
         mapsConfigured: Boolean(process.env.VITE_GOOGLE_MAPS_API_KEY),
         stripeConfigured: false,
       } })
@@ -505,8 +507,12 @@ export default async function handler(req, res) {
     if (action === 'create_category') await saveCategory(client, profile, input, req)
     if (action === 'update_category') await updateCategory(client, profile, input, req)
     if (action === 'delete_category') await deleteCategory(client, profile, input, req)
-    if (action === 'update_settings') {
-      const entries = Object.entries(input.settings).map(([key, value]) => ({ key, value, is_public: false, updated_by: profile.id, updated_at: new Date().toISOString() }))
+    if (action === 'update_settings' || action === 'update_public_site_settings') {
+      const keys = Object.keys(input.settings)
+      const existing = await client.from('site_settings').select('key,is_public').in('key', keys)
+      if (existing.error) throw existing.error
+      const publicByKey = Object.fromEntries((existing.data || []).map((entry) => [entry.key, entry.is_public]))
+      const entries = Object.entries(input.settings).map(([key, value]) => ({ key, value, is_public: isPublicSiteSettingKey(key) || publicByKey[key] === true, updated_by: profile.id, updated_at: new Date().toISOString() }))
       const result = await client.from('site_settings').upsert(entries, { onConflict: 'key' })
       if (result.error) throw result.error
       await recordAudit(client, profile, 'settings_updated', 'site_settings', 'bulk', req, { keys: Object.keys(input.settings) })

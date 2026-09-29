@@ -13,6 +13,7 @@ const permissionNames = [
   'ai.read',
   'settings.read',
   'settings.update',
+  'site_content.update',
   'media.manage',
   'audit.read',
   'audit.write',
@@ -27,6 +28,9 @@ const permissionNames = [
 
 const allPermissions = Object.freeze(permissionNames)
 
+const PUBLIC_SETTING_PREFIXES = Object.freeze(['content.', 'images.', 'design.', 'layout.'])
+const HOME_SECTION_KEYS = Object.freeze(['hero', 'categories', 'discover', 'events', 'towns', 'weekend', 'featured', 'life', 'articles'])
+
 export const ROLE_PERMISSIONS = Object.freeze({
   super_admin: allPermissions,
   admin: Object.freeze([
@@ -34,6 +38,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
     'claims.review', 'towns.manage', 'events.manage', 'newsletter.read', 'contact.read',
     'users.read', 'ai.read', 'settings.read', 'media.manage', 'audit.read', 'audit.write',
     'security.read', 'categories.manage', 'articles.manage', 'newsletter.send',
+    'site_content.update',
   ]),
   editor: Object.freeze([
     'dashboard.read', 'businesses.read', 'businesses.manage', 'submissions.review',
@@ -76,6 +81,7 @@ export const ADMIN_ACTIONS = Object.freeze([
   'articles', 'create_article', 'update_article', 'delete_article',
   'categories', 'create_category', 'update_category', 'delete_category',
   'settings', 'update_settings', 'feature_flags', 'update_feature_flag',
+  'update_public_site_settings',
   'newsletter_send', 'invite_user', 'set_user_status', 'revoke_user_sessions',
   'ai_settings', 'update_ai_settings',
 ])
@@ -111,6 +117,7 @@ const ACTION_PERMISSIONS = Object.freeze({
   delete_category: 'categories.manage',
   settings: 'settings.read',
   update_settings: 'settings.update',
+  update_public_site_settings: 'site_content.update',
   feature_flags: 'settings.read',
   update_feature_flag: 'settings.update',
   newsletter_send: 'newsletter.send',
@@ -162,6 +169,44 @@ export function cleanDecision(value) {
 
 export function cleanStatus(value) {
   if (value !== 'draft' && value !== 'published') throw new Error('Status is invalid.')
+  return value
+}
+
+export function isPublicSiteSettingKey(key) {
+  return PUBLIC_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix))
+}
+
+function validatePublicSetting(key, value) {
+  if (!isPublicSiteSettingKey(key)) return value
+  if (key === 'layout.home.sections') {
+    if (!Array.isArray(value) || value.length > HOME_SECTION_KEYS.length) throw new Error('Homepage sections are invalid.')
+    const sections = value.map((section) => cleanText(section, 'section', 30))
+    if (new Set(sections).size !== sections.length || sections.some((section) => !HOME_SECTION_KEYS.includes(section))) throw new Error('Homepage sections are invalid.')
+    return sections
+  }
+  if (key.startsWith('design.color_')) {
+    if (typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value)) throw new Error('Design color is invalid.')
+    return value
+  }
+  if (key === 'design.font_heading' || key === 'design.font_body') {
+    if (!['serif', 'sans', 'system'].includes(value)) throw new Error('Design font is invalid.')
+    return value
+  }
+  if (key === 'design.radius') {
+    const number = Number(value)
+    if (!Number.isFinite(number) || number < 0 || number > 24) throw new Error('Design radius is invalid.')
+    return number
+  }
+  if (key === 'design.spacing') {
+    const number = Number(value)
+    if (!Number.isFinite(number) || number < 0.8 || number > 1.4) throw new Error('Design spacing is invalid.')
+    return number
+  }
+  if (key.startsWith('images.')) {
+    if (typeof value !== 'string' || value.length > 1000 || !/^https:\/\//i.test(value)) throw new Error('Image URL is invalid.')
+    return value
+  }
+  if (typeof value !== 'string' || value.length > 2000) throw new Error('Public content is invalid.')
   return value
 }
 
@@ -319,13 +364,13 @@ export function validateAdminPayload(action, body = {}) {
     return { id, changes }
   }
 
-  if (action === 'update_settings') {
+  if (action === 'update_settings' || action === 'update_public_site_settings') {
     if (!body.settings || typeof body.settings !== 'object' || Array.isArray(body.settings)) throw new Error('Settings are invalid.')
     const settings = {}
     for (const [key, value] of Object.entries(body.settings).slice(0, 50)) {
       const safeKey = cleanText(key, 'setting key', 100).toLowerCase().replace(/[^a-z0-9_.-]/g, '-')
-      if (typeof value === 'string') settings[safeKey] = value.slice(0, 2000)
-      else if (typeof value === 'boolean' || typeof value === 'number') settings[safeKey] = value
+      if (action === 'update_public_site_settings' && !isPublicSiteSettingKey(safeKey)) throw new Error('Only public site content settings can be changed.')
+      if (Array.isArray(value) || typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number') settings[safeKey] = validatePublicSetting(safeKey, value)
     }
     return { settings }
   }

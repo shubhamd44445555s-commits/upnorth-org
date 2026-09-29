@@ -59,6 +59,7 @@ The first admin user has already been created for this project. Use the SQL abov
 - Listing visibility, Featured, and Enhanced flags.
 - Event publish/unpublish status.
 - Audit log entries for moderation actions.
+- Site Content & Design: approved homepage text, nav/footer labels, image assignments, allowlisted theme tokens, and homepage section order/visibility. This is a separate `site_content.update` permission and does not grant billing, secrets, or AI-provider access.
 
 ## Image storage
 
@@ -85,7 +86,14 @@ MAILCHIMP_SERVER_PREFIX=
 
 ## Migrations
 
-The generated migration is in `supabase/migrations/20260926205711_upnorth_platform.sql`. It contains the tables, RLS policies, private admin helper, audit log, and Storage policies.
+The generated migrations are:
+
+- `supabase/migrations/20260926205711_upnorth_platform.sql` — core platform tables and RLS.
+- `supabase/migrations/20260928120000_secure_admin_panel.sql` — secure admin roles, permissions, audit/security records.
+- `supabase/migrations/20260929130000_admin_content_controls.sql` — articles, categories, settings, AI metadata, and admin controls.
+- `supabase/migrations/20260929160000_public_site_settings.sql` — public read policy for explicitly published site settings and the narrow `site_content.update` permission.
+
+Run them in timestamp order. The last migration is required for the public website to read CMS settings and for an `admin` role to save Site Content & Design changes.
 
 ## Deployment checklist
 

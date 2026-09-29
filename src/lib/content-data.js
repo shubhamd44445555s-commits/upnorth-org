@@ -41,22 +41,37 @@ const mapEvent = (row) => ({
   description: row.description,
 })
 
+const mapArticle = (row) => ({
+  id: row.id,
+  slug: row.slug,
+  title: row.title,
+  excerpt: row.excerpt || '',
+  body: row.body || '',
+  heroImage: row.hero_image || '',
+  status: row.status,
+  seoTitle: row.seo_title || '',
+  seoDescription: row.seo_description || '',
+  publishedAt: row.published_at || row.created_at,
+})
+
 export async function loadPublishedContent() {
   if (!supabase) return null
 
-  const [townsResult, listingsResult, eventsResult] = await Promise.all([
+  const [townsResult, listingsResult, eventsResult, articlesResult] = await Promise.all([
     supabase.from('towns').select('*').eq('status', 'published').order('name'),
     supabase.from('listings').select('*').eq('status', 'published').order('name'),
     supabase.from('events').select('*').eq('status', 'published').order('date_sort'),
+    supabase.from('admin_articles').select('*').eq('status', 'published').order('published_at', { ascending: false }),
   ])
 
-  const firstError = townsResult.error || listingsResult.error || eventsResult.error
+  const firstError = townsResult.error || listingsResult.error || eventsResult.error || articlesResult.error
   if (firstError) throw firstError
 
   return {
     towns: (townsResult.data || []).map(mapTown),
     listings: (listingsResult.data || []).map(mapListing),
     events: (eventsResult.data || []).map(mapEvent),
+    articles: (articlesResult.data || []).map(mapArticle),
   }
 }
 

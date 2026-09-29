@@ -13,7 +13,8 @@ The secure admin workspace is available at `/admin` after Supabase email/passwor
 - Contact messages: read-only operations inbox.
 - Articles/CMS: draft/published editorial articles with SEO fields.
 - Categories/places: taxonomy records for listing, place, and real-estate categories.
-- Site settings and feature flags: non-secret configuration only.
+- Site Content & Design: homepage hero/section text, navigation/footer labels, approved image URLs, allowlisted colors/fonts/spacing, and homepage section visibility/order. Changes are saved as public JSON values only; arbitrary HTML/CSS/scripts are not accepted.
+- Feature flags: non-secret configuration only.
 - AI settings: non-secret model, prompt, enable/disable, and usage-limit metadata.
 - Users: super-admin-only role changes, invite, suspension/reactivation, and global session revocation when the private Supabase service-role key is configured.
 - Audit and security event logs.
@@ -22,7 +23,12 @@ Stripe and pricing controls are intentionally not exposed until client approval.
 
 ## Required migration
 
-Run `supabase/migrations/20260929130000_admin_content_controls.sql` in the Supabase SQL Editor after the secure admin migration. Do not deploy the new admin bundle before this migration is applied: the panel intentionally fails closed if the `profiles.status` security column or new protected admin tables are missing.
+Run these migrations in the Supabase SQL Editor in order:
+
+1. `supabase/migrations/20260929130000_admin_content_controls.sql`
+2. `supabase/migrations/20260929160000_public_site_settings.sql`
+
+The second migration adds public read access only for rows marked `is_public = true` and creates the narrow `site_content.update` permission for the `admin` role. The browser cannot write settings directly; the server action validates the allowlisted content, image, design, and layout values.
 
 ## Provider configuration
 
@@ -36,3 +42,7 @@ The service-role key is never imported by browser code, returned by an API respo
 ## Security boundary
 
 The UI only hides unavailable actions for usability. `/api/admin` independently verifies the Supabase token, profile status, role permission, origin, payload shape, rate limit, RLS result, and audit trail. Client-submitted roles and flags are not trusted for authorization. Destructive actions require an explicit UI confirmation and server-side permission.
+
+## Public CMS behavior
+
+The public app keeps the existing UpNorth design as its fallback. Once the public-settings migration is applied, it reads published `site_settings` rows through the Supabase publishable key. The home page can render the known section blocks in the saved order, and published `admin_articles` appear on the home page when available and at `/articles` / `/articles/:slug`. Article bodies render as plain text paragraphs; arbitrary HTML is not rendered.
