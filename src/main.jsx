@@ -98,7 +98,7 @@ function SafeImage({ src, alt = '', ...props }) {
 }
 
 function Logo({ light = false, onNavigate }) {
-  return <a className={`logo ${light ? 'logo-light' : ''}`} href="/" onClick={(event) => onNavigate?.(event, '/')} aria-label={`${siteValue('content.brand_name', 'Upnorth.org')} home`}><span className="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><span className="logo-copy"><strong>{siteValue('content.brand_name', 'Upnorth.org')}</strong><small>{siteValue('content.brand_tagline', 'EXPLORE · STAY · DO · BELONG')}</small></span></a>
+  return <a className={`logo ${light ? 'logo-light' : ''}`} href="/" onClick={(event) => onNavigate?.(event, '/')} aria-label={`${siteValue('content.brand_name', 'UpNorth.org')} home`}><img className="logo-mark-image" src="/upnorth-logo-mark.png" alt="" aria-hidden="true" /><span className="logo-copy"><strong>{siteValue('content.brand_name', 'UpNorth.org')}</strong><small>{siteValue('content.brand_tagline', 'EXPLORE · STAY · DO · BELONG')}</small></span></a>
 }
 
 function SiteHeader({ onNavigate }) {

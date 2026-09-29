@@ -16,7 +16,7 @@ function P3SafeImage({ src, alt = '', ...props }) {
   return <img {...props} src={source} alt={alt} onError={() => setSource((current) => current === p3FallbackImage ? current : p3FallbackImage)} />
 }
 
-function P3Logo({ light = false }) { return <a className={`logo ${light ? 'logo-light' : ''}`} href="/"><span className="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><span className="logo-copy"><strong>Upnorth.org</strong><small>EXPLORE · STAY · DO · BELONG</small></span></a> }
+function P3Logo({ light = false }) { return <a className={`logo ${light ? 'logo-light' : ''}`} href="/"><img className="logo-mark-image" src="/upnorth-logo-mark.png" alt="" aria-hidden="true" /><span className="logo-copy"><strong>UpNorth.org</strong><small>EXPLORE · STAY · DO · BELONG</small></span></a> }
 
 function P3Header() { return <header className="site-header"><div className="header-inner"><P3Logo /><nav className="p3-nav"><a href="/things-to-do">Things To Do</a><a href="/stay">Places to Stay</a><a href="/eat-drink">Eat &amp; Drink</a><a href="/events">Events</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/pricing">List Your Business</a></nav><button className="plan-button" type="button" onClick={() => { window.location.href = '/ask' }}>Ask UpNorth</button></div></header> }
 

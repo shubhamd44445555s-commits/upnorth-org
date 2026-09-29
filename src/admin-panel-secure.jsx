@@ -41,7 +41,7 @@ const tabs = [
 ]
 
 function AdminLogo({ light = false }) {
-  return <a className={`logo ${light ? 'logo-light' : ''}`} href="/"><span className="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><span className="logo-copy"><strong>Upnorth.org</strong><small>EXPLORE · STAY · DO · BELONG</small></span></a>
+  return <a className={`logo ${light ? 'logo-light' : ''}`} href="/"><img className="logo-mark-image" src="/upnorth-logo-mark.png" alt="" aria-hidden="true" /><span className="logo-copy"><strong>UpNorth.org</strong><small>EXPLORE · STAY · DO · BELONG</small></span></a>
 }
 
 function AdminShell({ children, user, onSignOut, activeTab, onTab, permissions = [] }) {

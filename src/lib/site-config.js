@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 export const DEFAULT_SITE_CONFIG = Object.freeze({
-  'content.brand_name': 'Upnorth.org',
+  'content.brand_name': 'UpNorth.org',
   'content.brand_tagline': 'EXPLORE · STAY · DO · BELONG',
   'content.nav.things_to_do': 'Things To Do',
   'content.nav.places_to_stay': 'Places to Stay',
