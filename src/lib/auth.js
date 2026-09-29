@@ -15,11 +15,11 @@ export async function signOut() {
 
 export async function getProfile(userId) {
   if (!supabase || !userId) return null
-  const { data, error } = await supabase.from('profiles').select('id,email,role').eq('id', userId).maybeSingle()
+  const { data, error } = await supabase.from('profiles').select('id,email,role,status').eq('id', userId).maybeSingle()
   if (error) throw error
   return data
 }
 
 export function isAdminProfile(profile) {
-  return ['super_admin', 'admin', 'editor', 'moderator', 'business_manager', 'viewer'].includes(profile?.role)
+  return profile?.status !== 'suspended' && ['super_admin', 'admin', 'editor', 'moderator', 'business_manager', 'viewer'].includes(profile?.role)
 }

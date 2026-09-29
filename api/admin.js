@@ -63,6 +63,13 @@ function createUserClient(accessToken) {
   })
 }
 
+function createServiceClient() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw Object.assign(new Error('This provider operation is not configured.'), { status: 503 })
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
+}
+
 function requestMeta(req) {
   return {
     ipAddress: String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim().slice(0, 80) || null,
@@ -113,10 +120,10 @@ async function requireAdmin(req, action) {
 
   const { data: profile, error: profileError } = await client
     .from('profiles')
-    .select('id,email,role')
+    .select('id,email,role,status')
     .eq('id', userData.user.id)
     .maybeSingle()
-  if (profileError || !profile || !canRole(profile.role, permissionForAction(action))) {
+  if (profileError || !profile || profile.status === 'suspended' || !canRole(profile.role, permissionForAction(action))) {
     throw Object.assign(new Error('You do not have permission for this action.'), { status: 403 })
   }
   return { client, user: userData.user, profile, permissions: permissionsForRole(profile.role) }
@@ -155,6 +162,159 @@ async function loadOverview(client) {
 
 function slugify(value) {
   return String(value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 90)
+}
+
+async function createListing(client, actor, input, req) {
+  const result = await client.from('listings').insert(input)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'listing_created', 'listing', input.id, req, { slug: input.slug })
+  await recordSecurityEvent(client, actor, 'ADMIN_LISTING_CREATED', req, { listing_id: input.id })
+}
+
+async function deleteListing(client, actor, input, req) {
+  const existing = await client.from('listings').select('id,name').eq('id', input.id).maybeSingle()
+  if (existing.error) throw existing.error
+  if (!existing.data) throw Object.assign(new Error('Listing not found.'), { status: 404 })
+  const result = await client.from('listings').delete().eq('id', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'listing_deleted', 'listing', input.id, req, { name: existing.data.name })
+  await recordSecurityEvent(client, actor, 'ADMIN_LISTING_DELETED', req, { listing_id: input.id })
+}
+
+async function loadTowns(client) {
+  const result = await client.from('towns').select('*').order('name', { ascending: true })
+  if (result.error) throw result.error
+  return result.data || []
+}
+
+async function createTown(client, actor, input, req) {
+  const result = await client.from('towns').insert(input)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'town_created', 'town', input.slug, req)
+  await recordSecurityEvent(client, actor, 'ADMIN_TOWN_CREATED', req, { slug: input.slug })
+}
+
+async function updateTown(client, actor, input, req) {
+  const result = await client.from('towns').update(input.changes).eq('slug', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'town_updated', 'town', input.id, req, input.changes)
+  await recordSecurityEvent(client, actor, 'ADMIN_TOWN_UPDATED', req, { slug: input.id })
+}
+
+async function deleteTown(client, actor, input, req) {
+  const listings = await client.from('listings').select('id').eq('town', input.id).limit(1)
+  if (listings.error) throw listings.error
+  if (listings.data?.length) throw Object.assign(new Error('Move or archive this town’s listings before deleting it.'), { status: 409 })
+  const events = await client.from('events').select('id').eq('town', input.id).limit(1)
+  if (events.error) throw events.error
+  if (events.data?.length) throw Object.assign(new Error('Move or archive this town’s events before deleting it.'), { status: 409 })
+  const result = await client.from('towns').delete().eq('slug', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'town_deleted', 'town', input.id, req)
+  await recordSecurityEvent(client, actor, 'ADMIN_TOWN_DELETED', req, { slug: input.id })
+}
+
+async function loadMedia(client) {
+  const result = await client.storage.from('listing-images').list('', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } })
+  if (result.error) throw result.error
+  return result.data || []
+}
+
+async function loadArticles(client) {
+  const result = await client.from('admin_articles').select('*').order('updated_at', { ascending: false })
+  if (result.error) throw result.error
+  return result.data || []
+}
+
+async function saveArticle(client, actor, input, req) {
+  const result = await client.from('admin_articles').insert({ ...input, author_id: actor.id, published_at: input.status === 'published' ? new Date().toISOString() : null })
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'article_created', 'article', input.id, req, { slug: input.slug })
+}
+
+async function updateArticle(client, actor, input, req) {
+  const changes = { ...input.changes }
+  if (changes.status === 'published') changes.published_at = new Date().toISOString()
+  const result = await client.from('admin_articles').update(changes).eq('id', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'article_updated', 'article', input.id, req, { status: changes.status })
+}
+
+async function deleteArticle(client, actor, input, req) {
+  const result = await client.from('admin_articles').delete().eq('id', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'article_deleted', 'article', input.id, req)
+}
+
+async function loadCategories(client) {
+  const result = await client.from('admin_categories').select('*').order('sort_order', { ascending: true }).order('name', { ascending: true })
+  if (result.error) throw result.error
+  return result.data || []
+}
+
+async function saveCategory(client, actor, input, req) {
+  const result = await client.from('admin_categories').insert(input)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'category_created', 'category', input.id, req, { slug: input.slug })
+}
+
+async function updateCategory(client, actor, input, req) {
+  const result = await client.from('admin_categories').update(input.changes).eq('id', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'category_updated', 'category', input.id, req)
+}
+
+async function deleteCategory(client, actor, input, req) {
+  const result = await client.from('admin_categories').delete().eq('id', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'category_deleted', 'category', input.id, req)
+}
+
+async function sendNewsletter(client, actor, input, req) {
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.RESEND_FROM_EMAIL
+  if (!apiKey || !from) throw Object.assign(new Error('Newsletter sending is not configured yet.'), { status: 503 })
+  const subscribers = await client.from('newsletter_subscribers').select('email').limit(5000)
+  if (subscribers.error) throw subscribers.error
+  const recipients = (subscribers.data || []).map((row) => row.email).filter(Boolean)
+  if (!recipients.length) throw Object.assign(new Error('No newsletter subscribers found.'), { status: 409 })
+  const batches = []
+  for (let index = 0; index < recipients.length; index += 50) batches.push(recipients.slice(index, index + 50))
+  for (const batch of batches) {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [from], bcc: batch, subject: input.subject, text: input.text }),
+    })
+    if (!response.ok) throw Object.assign(new Error('Newsletter provider rejected the message.'), { status: 502 })
+  }
+  await recordAudit(client, actor, 'newsletter_sent', 'newsletter', 'broadcast', req, { recipient_count: recipients.length, batch_count: batches.length })
+  return { recipientCount: recipients.length }
+}
+
+async function inviteUser(client, actor, input, req) {
+  const service = createServiceClient()
+  const result = await service.auth.admin.inviteUserByEmail(input.email)
+  if (result.error) throw result.error
+  if (result.data?.user?.id) {
+    const profile = await service.from('profiles').upsert({ id: result.data.user.id, email: input.email, role: input.role, status: 'active' }, { onConflict: 'id' })
+    if (profile.error) throw profile.error
+  }
+  await recordAudit(client, actor, 'user_invited', 'profile', result.data?.user?.id || input.email, req, { role: input.role })
+}
+
+async function setUserStatus(client, actor, input, req) {
+  if (actor.id === input.id) throw Object.assign(new Error('You cannot suspend your own account.'), { status: 403 })
+  const result = await client.from('profiles').update({ status: input.status }).eq('id', input.id)
+  if (result.error) throw result.error
+  await recordAudit(client, actor, input.status === 'suspended' ? 'user_suspended' : 'user_reactivated', 'profile', input.id, req)
+}
+
+async function revokeUserSessions(client, actor, input, req) {
+  if (actor.id === input.id) throw Object.assign(new Error('Use sign out for your current session.'), { status: 403 })
+  const service = createServiceClient()
+  const result = await service.auth.admin.signOut(input.id, 'global')
+  if (result.error) throw result.error
+  await recordAudit(client, actor, 'user_sessions_revoked', 'profile', input.id, req)
 }
 
 async function reviewSubmission(client, actor, input, req) {
@@ -286,15 +446,93 @@ export default async function handler(req, res) {
       return response(res, 200, { ok: true, events: result.data || [] })
     }
     if (action === 'users') {
-      const result = await client.from('profiles').select('id,email,role,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
+      const result = await client.from('profiles').select('id,email,role,status,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
       if (result.error) throw result.error
       return response(res, 200, { ok: true, users: result.data || [] })
     }
+    if (action === 'newsletter_subscribers') {
+      const result = await client.from('newsletter_subscribers').select('email,created_at').order('created_at', { ascending: false }).limit(1000)
+      if (result.error) throw result.error
+      return response(res, 200, { ok: true, subscribers: result.data || [] })
+    }
+    if (action === 'contact_messages') {
+      const result = await client.from('contact_messages').select('*').order('created_at', { ascending: false }).limit(500)
+      if (result.error) throw result.error
+      return response(res, 200, { ok: true, messages: result.data || [] })
+    }
+    if (action === 'articles') return response(res, 200, { ok: true, articles: await loadArticles(client) })
+    if (action === 'categories') return response(res, 200, { ok: true, categories: await loadCategories(client) })
+    if (action === 'settings') {
+      const result = await client.from('site_settings').select('*').order('key', { ascending: true })
+      if (result.error) throw result.error
+      return response(res, 200, { ok: true, settings: result.data || [] })
+    }
+    if (action === 'feature_flags') {
+      const result = await client.from('feature_flags').select('*').order('key', { ascending: true })
+      if (result.error) throw result.error
+      return response(res, 200, { ok: true, flags: result.data || [] })
+    }
+    if (action === 'ai_settings') {
+      const result = await client.from('ai_settings').select('enabled,model,system_prompt,monthly_limit,updated_at').eq('id', true).maybeSingle()
+      if (result.error) throw result.error
+      return response(res, 200, { ok: true, settings: result.data || { enabled: true, model: process.env.GROQ_MODEL || null, system_prompt: null, monthly_limit: 0 } })
+    }
+    if (action === 'system_status') {
+      return response(res, 200, { ok: true, status: {
+        supabaseConfigured: Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) && Boolean(process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY),
+        groqConfigured: Boolean(process.env.GROQ_API_KEY),
+        groqModel: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
+        resendConfigured: Boolean(process.env.RESEND_API_KEY),
+        mapsConfigured: Boolean(process.env.VITE_GOOGLE_MAPS_API_KEY),
+        stripeConfigured: false,
+      } })
+    }
+    if (action === 'media_list') return response(res, 200, { ok: true, media: await loadMedia(client) })
+    if (action === 'towns') return response(res, 200, { ok: true, towns: await loadTowns(client) })
     if (action === 'review_submission') await reviewSubmission(client, profile, input, req)
     if (action === 'review_claim') await reviewClaim(client, profile, input, req)
+    if (action === 'create_listing') await createListing(client, profile, input, req)
+    if (action === 'delete_listing') await deleteListing(client, profile, input, req)
+    if (action === 'create_town') await createTown(client, profile, input, req)
+    if (action === 'update_town') await updateTown(client, profile, input, req)
+    if (action === 'delete_town') await deleteTown(client, profile, input, req)
     if (action === 'update_listing') await updateListing(client, profile, input, req)
     if (action === 'update_event') await updateEvent(client, profile, input, req)
     if (action === 'update_user_role') await updateUserRole(client, profile, input, req)
+    if (action === 'create_article') await saveArticle(client, profile, input, req)
+    if (action === 'update_article') await updateArticle(client, profile, input, req)
+    if (action === 'delete_article') await deleteArticle(client, profile, input, req)
+    if (action === 'create_category') await saveCategory(client, profile, input, req)
+    if (action === 'update_category') await updateCategory(client, profile, input, req)
+    if (action === 'delete_category') await deleteCategory(client, profile, input, req)
+    if (action === 'update_settings') {
+      const entries = Object.entries(input.settings).map(([key, value]) => ({ key, value, is_public: false, updated_by: profile.id, updated_at: new Date().toISOString() }))
+      const result = await client.from('site_settings').upsert(entries, { onConflict: 'key' })
+      if (result.error) throw result.error
+      await recordAudit(client, profile, 'settings_updated', 'site_settings', 'bulk', req, { keys: Object.keys(input.settings) })
+    }
+    if (action === 'update_feature_flag') {
+      const result = await client.from('feature_flags').upsert({ key: input.key, enabled: input.enabled, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+      if (result.error) throw result.error
+      await recordAudit(client, profile, 'feature_flag_updated', 'feature_flag', input.key, req, { enabled: input.enabled })
+    }
+    if (action === 'newsletter_send') {
+      const result = await sendNewsletter(client, profile, input, req)
+      return response(res, 200, { ok: true, ...result })
+    }
+    if (action === 'invite_user') await inviteUser(client, profile, input, req)
+    if (action === 'set_user_status') await setUserStatus(client, profile, input, req)
+    if (action === 'revoke_user_sessions') await revokeUserSessions(client, profile, input, req)
+    if (action === 'update_ai_settings') {
+      const result = await client.from('ai_settings').upsert({ id: true, ...input.settings, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+      if (result.error) throw result.error
+      await recordAudit(client, profile, 'ai_settings_updated', 'ai_settings', 'default', req, { model: input.settings.model, enabled: input.settings.enabled })
+    }
+    if (action === 'media_delete') {
+      const result = await client.storage.from('listing-images').remove([input.path])
+      if (result.error) throw result.error
+      await recordAudit(client, profile, 'media_deleted', 'media', input.path, req)
+    }
     return response(res, 200, { ok: true })
   } catch (error) {
     const status = Number.isInteger(error?.status) ? error.status : 500

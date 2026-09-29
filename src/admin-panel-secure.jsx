@@ -5,6 +5,11 @@ import {
   loadAdminUsers,
   loadAuditLogs,
   loadSecurityEvents,
+  loadNewsletterSubscribers,
+  loadContactMessages,
+  loadTowns,
+  loadMedia,
+  loadSystemStatus,
   reviewBusinessSubmission,
   reviewClaim,
   updateAdminRole,
@@ -13,6 +18,8 @@ import {
 } from './lib/admin-data'
 import { getProfile, isAdminProfile, signInWithPassword, signOut } from './lib/auth'
 import { supabase } from './lib/supabase'
+import { BusinessManager, ContactManager, LockedTools, MediaManager, NewsletterManager, SystemManager, TownManager } from './admin-tools'
+import AdminWorkspace from './admin-workspace'
 import './styles.part3.css'
 import './styles.admin.css'
 
@@ -20,11 +27,17 @@ const tabs = [
   { id: 'overview', label: 'Overview', permission: 'dashboard.read' },
   { id: 'submissions', label: 'Submissions', permission: 'submissions.review' },
   { id: 'claims', label: 'Claims', permission: 'claims.review' },
-  { id: 'listings', label: 'Listings', permission: 'businesses.read' },
+  { id: 'listings', label: 'Businesses', permission: 'businesses.read' },
+  { id: 'towns', label: 'Towns', permission: 'towns.manage' },
   { id: 'events', label: 'Events', permission: 'events.manage' },
+  { id: 'newsletter', label: 'Newsletter', permission: 'newsletter.read' },
+  { id: 'contact', label: 'Messages', permission: 'contact.read' },
+  { id: 'media', label: 'Media', permission: 'media.manage' },
   { id: 'users', label: 'Users', permission: 'users.read' },
   { id: 'audit', label: 'Audit logs', permission: 'audit.read' },
   { id: 'security', label: 'Security', permission: 'security.read' },
+  { id: 'system', label: 'AI & System', permission: 'ai.read' },
+  { id: 'locked', label: 'More controls', permission: 'settings.read' },
 ]
 
 function AdminLogo({ light = false }) {
@@ -80,7 +93,7 @@ export function AdminPage() {
   const [profile, setProfile] = useState(null)
   const [data, setData] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
-  const [viewData, setViewData] = useState({ audit: [], security: [], users: [] })
+  const [viewData, setViewData] = useState({ audit: [], security: [], users: [], subscribers: [], messages: [], towns: [], media: [], system: {} })
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
   const permissions = data?.actor?.permissions || []
@@ -93,6 +106,11 @@ export function AdminPage() {
       if (tab === 'audit') { const audit = await loadAuditLogs(); setViewData((current) => ({ ...current, audit })) }
       if (tab === 'security') { const security = await loadSecurityEvents(); setViewData((current) => ({ ...current, security })) }
       if (tab === 'users') { const users = await loadAdminUsers(); setViewData((current) => ({ ...current, users })) }
+      if (tab === 'newsletter') { const subscribers = await loadNewsletterSubscribers(); setViewData((current) => ({ ...current, subscribers })) }
+      if (tab === 'contact') { const messages = await loadContactMessages(); setViewData((current) => ({ ...current, messages })) }
+      if (tab === 'towns') { const loadedTowns = await loadTowns(); setViewData((current) => ({ ...current, towns: loadedTowns })) }
+      if (tab === 'media') { const media = await loadMedia(); setViewData((current) => ({ ...current, media })) }
+      if (tab === 'system') { const system = await loadSystemStatus(); setViewData((current) => ({ ...current, system })) }
     } catch (loadError) { setError(loadError.message || 'Could not load this admin view.') }
   }
 
@@ -134,4 +152,4 @@ export function AdminPage() {
   return <AdminShell user={user} onSignOut={logout} activeTab={activeTab} onTab={loadTab} permissions={permissions}><main className="admin-main"><div className="admin-content">{error && <div className="admin-alert admin-alert-error">{error}</div>}{activeTab === 'overview' && <Overview data={data} onTab={loadTab} />}{activeTab === 'submissions' && can('submissions.review') && <section className="admin-section admin-panel-section"><SectionHeading title="Business submissions" description={`${pendingSubmissions.length} pending request${pendingSubmissions.length === 1 ? '' : 's'}.`} onRefresh={refresh} /><div className="admin-record-grid">{data?.submissions?.length ? data.submissions.map((submission) => <SubmissionCard key={submission.id} submission={submission} onReview={handleSubmissionReview} busy={busyId === submission.id} />) : <EmptyState>No submissions yet.</EmptyState>}</div></section>}{activeTab === 'claims' && can('claims.review') && <section className="admin-section admin-panel-section"><SectionHeading title="Business claims" description={`${pendingClaims.length} pending claim${pendingClaims.length === 1 ? '' : 's'}.`} onRefresh={refresh} /><div className="admin-record-grid">{data?.claims?.length ? data.claims.map((claim) => <ClaimCard key={claim.id} claim={claim} onReview={handleClaimReview} busy={busyId === claim.id} />) : <EmptyState>No claims yet.</EmptyState>}</div></section>}{activeTab === 'listings' && can('businesses.read') && <section className="admin-section admin-panel-section"><SectionHeading title="Listings" description="Visibility changes are validated by the server and RLS." onRefresh={refresh} /><div className="admin-list-table">{data?.listings?.map((listing) => <article className="admin-list-row" key={listing.id}><div><strong>{listing.name}</strong><span>{listing.town} · {listing.category} · <StatusPill status={listing.status} /></span></div>{can('businesses.manage') && <div className="admin-row-actions"><button type="button" className="admin-button" disabled={busyId === listing.id} onClick={() => handleFlags(listing, { status: listing.status === 'published' ? 'draft' : 'published' })}>{listing.status === 'published' ? 'Unpublish' : 'Publish'}</button><button type="button" className="admin-button" disabled={busyId === listing.id} onClick={() => handleFlags(listing, { is_featured: !listing.is_featured })}>{listing.is_featured ? 'Remove featured' : 'Make featured'}</button></div>}</article>)}</div></section>}{activeTab === 'events' && can('events.manage') && <section className="admin-section admin-panel-section"><SectionHeading title="Events" description="Publish only verified event information." onRefresh={refresh} /><div className="admin-list-table">{data?.events?.map((event) => <article className="admin-list-row" key={event.id}><div><strong>{event.title}</strong><span>{event.venue} · {event.town} · <StatusPill status={event.status} /></span></div><div className="admin-row-actions"><button type="button" className="admin-button" disabled={busyId === event.id} onClick={() => handleEventStatus(event)}>{event.status === 'published' ? 'Unpublish' : 'Publish'}</button></div></article>)}</div></section>}{activeTab === 'users' && can('users.read') && <section className="admin-section admin-panel-section"><SectionHeading title="Users and roles" description="Role changes require the server-side admins.manage permission." onRefresh={() => loadTab('users')} /><div className="admin-list-table">{viewData.users.map((entry) => <article className="admin-list-row" key={entry.id}><div><strong>{entry.email}</strong><span>{entry.id}</span></div>{profile?.role === 'super_admin' ? <select className="admin-role-select" value={entry.role} disabled={busyId === entry.id || entry.id === user.id} onChange={(event) => handleRole(entry, event.target.value)}><option value="super_admin">Super admin</option><option value="admin">Admin</option><option value="editor">Editor</option><option value="moderator">Moderator</option><option value="business_manager">Business manager</option><option value="viewer">Viewer</option><option value="business_owner">Business owner</option></select> : <StatusPill status={entry.role} />}</article>)}</div>{profile?.role !== 'super_admin' && <p className="admin-security-note">Only a super administrator can change administrator roles. Self-escalation is blocked.</p>}</section>}{activeTab === 'audit' && can('audit.read') && <section className="admin-section admin-panel-section"><SectionHeading title="Audit logs" description="Append-oriented record of administrative actions." onRefresh={() => loadTab('audit')} /><div className="admin-log-table">{viewData.audit.length ? viewData.audit.map((entry) => <article className="admin-log-row" key={entry.id}><div><strong>{entry.action}</strong><span>{entry.entity_type} · {entry.entity_id}</span></div><time>{new Date(entry.created_at).toLocaleString()}</time></article>) : <EmptyState>No audit records available. Apply the secure admin migration to enable the extended trail.</EmptyState>}</div></section>}{activeTab === 'security' && can('security.read') && <section className="admin-section admin-panel-section"><SectionHeading title="Security events" description="Authentication and administrative security signals." onRefresh={() => loadTab('security')} /><div className="admin-log-table">{viewData.security.length ? viewData.security.map((entry) => <article className="admin-log-row" key={entry.id}><div><strong>{entry.event_type}</strong><span>{entry.success ? 'Successful' : 'Failed'} · {entry.ip_address || 'IP unavailable'}</span></div><time>{new Date(entry.created_at).toLocaleString()}</time></article>) : <EmptyState>No security events available. Apply the secure admin migration to enable this feed.</EmptyState>}</div><p className="admin-security-note">Active Supabase Auth sessions and MFA status are not inferred from frontend state. They require provider-level session/MFA configuration before being shown as production facts.</p></section>}</div></main></AdminShell>
 }
 
-createRoot(document.getElementById('root')).render(window.location.pathname === '/login' ? <AuthPage /> : <AdminPage />)
+createRoot(document.getElementById('root')).render(window.location.pathname === '/login' ? <AuthPage /> : <AdminWorkspace />)
