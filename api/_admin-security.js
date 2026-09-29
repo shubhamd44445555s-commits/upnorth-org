@@ -203,7 +203,13 @@ function validatePublicSetting(key, value) {
     return number
   }
   if (key.startsWith('images.')) {
-    if (typeof value !== 'string' || value.length > 1000 || !/^https:\/\//i.test(value)) throw new Error('Image URL is invalid.')
+    if (typeof value !== 'string' || value.length > 1000 || /[\s"'<>]/.test(value)) throw new Error('Image URL is invalid.')
+    try {
+      const url = new URL(value)
+      if (url.protocol !== 'https:') throw new Error('Image URL is invalid.')
+    } catch {
+      throw new Error('Image URL is invalid.')
+    }
     return value
   }
   if (typeof value !== 'string' || value.length > 2000) throw new Error('Public content is invalid.')

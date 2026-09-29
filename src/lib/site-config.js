@@ -145,7 +145,16 @@ export async function loadPublicSiteConfig() {
   const result = await supabase.from('site_settings').select('key,value').eq('is_public', true)
   if (result.error) throw result.error
   const values = Object.fromEntries((result.data || []).map((entry) => [entry.key, unwrapSettingValue(entry.value)]))
-  return { ...DEFAULT_SITE_CONFIG, ...values }
+  const config = { ...DEFAULT_SITE_CONFIG, ...values }
+  for (const key of Object.keys(DEFAULT_SITE_CONFIG).filter((name) => name.startsWith('images.'))) {
+    try {
+      const url = new URL(String(config[key] || ''))
+      if (url.protocol !== 'https:' || /[\s"'<>]/.test(String(config[key]))) throw new Error('unsafe image url')
+    } catch {
+      config[key] = DEFAULT_SITE_CONFIG[key]
+    }
+  }
+  return config
 }
 
 const safeColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : fallback
