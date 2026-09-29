@@ -32,7 +32,7 @@ export const towns = [
 ]
 
 export const weekendHighlights = [
-  { type: 'Fishing report', title: 'Musky are moving at first light', detail: 'Minocqua chain · Updated today', image: 'https://images.unsplash.com/photo-1534943441045-1009d7cbf97c?auto=format&fit=crop&w=850&q=85' },
+  { type: 'Fishing report', title: 'Musky are moving at first light', detail: 'Minocqua chain · Updated today', image: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=850&q=85' },
   { type: 'Trail conditions', title: 'Peak color is arriving up north', detail: 'Fall color guide · See the map', image: 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=850&q=85' },
   { type: 'Featured event', title: 'Live music by the lake', detail: 'Friday · The Thirsty Giraffe', image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=850&q=85' },
   { type: 'Local flavor', title: 'Friday fish fry, done right', detail: 'The Pioneer Bar · Land O’ Lakes', image: 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=850&q=85' },
