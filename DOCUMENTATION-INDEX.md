@@ -13,6 +13,8 @@ This documentation pack describes the UpNorth.org regional discovery website tha
 5. [Supabase Setup](./SUPABASE-SETUP.md) — admin provisioning, environment variables, migrations, RLS, storage, and newsletter provider setup.
 6. [Resend + Dynadot Setup](./RESEND-DYNADOT-SETUP.md) — safe domain provisioning, DNS automation, verification, and credential handling.
 7. [Secure Admin Panel Report](./ADMIN-SECURITY-REPORT.md) — architecture inspection, files, roles, permissions, RLS, security controls, tests, and production limitations.
+8. [Complete Debugging Report](./DEBUGGING-REPORT.md) — full QA, security, asset, browser, API, live-route verification, fixes, and remaining limitations.
+9. [Client Super Admin Message](./CLIENT-SUPER-ADMIN-MESSAGE.md) — ready-to-send client summary of admin capabilities, security, and pending setup.
 
 ## Current status
 

@@ -97,6 +97,39 @@ async function recordAudit(client, actor, action, entityType, entityId, req, met
   if (result.error) throw result.error
 }
 
+function changedFields(beforeData, afterData) {
+  const before = beforeData && typeof beforeData === 'object' ? beforeData : {}
+  const after = afterData && typeof afterData === 'object' ? afterData : {}
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]))
+    .slice(0, 100)
+}
+
+async function recordChangeHistory(client, actor, action, entityType, entityId, req, beforeData, afterData) {
+  const meta = requestMeta(req)
+  const result = await client.from('admin_change_history').insert({
+    actor_id: actor.id,
+    action,
+    entity_type: entityType,
+    entity_id: entityId,
+    before_data: beforeData || null,
+    after_data: afterData || null,
+    changed_fields: changedFields(beforeData, afterData),
+    ip_address: meta.ipAddress,
+    user_agent: meta.userAgent,
+  })
+  // The migration is additive. Keep existing admin operations usable until the
+  // client applies it, while audit_logs continues to capture the action.
+  if (result.error && /relation .* does not exist|schema cache|column/i.test(result.error.message || '')) return
+  if (result.error) throw result.error
+}
+
+async function getRow(client, table, column, value) {
+  const result = await client.from(table).select('*').eq(column, value).maybeSingle()
+  if (result.error) throw result.error
+  return result.data || null
+}
+
 async function recordSecurityEvent(client, actor, eventType, req, metadata = {}, success = true) {
   if (!canRole(actor.role, 'audit.write')) return
   const meta = requestMeta(req)
@@ -168,17 +201,18 @@ function slugify(value) {
 async function createListing(client, actor, input, req) {
   const result = await client.from('listings').insert(input)
   if (result.error) throw result.error
+  await recordChangeHistory(client, actor, 'listing_created', 'listing', input.id, req, null, input)
   await recordAudit(client, actor, 'listing_created', 'listing', input.id, req, { slug: input.slug })
   await recordSecurityEvent(client, actor, 'ADMIN_LISTING_CREATED', req, { listing_id: input.id })
 }
 
 async function deleteListing(client, actor, input, req) {
-  const existing = await client.from('listings').select('id,name').eq('id', input.id).maybeSingle()
-  if (existing.error) throw existing.error
-  if (!existing.data) throw Object.assign(new Error('Listing not found.'), { status: 404 })
+  const existing = await getRow(client, 'listings', 'id', input.id)
+  if (!existing) throw Object.assign(new Error('Listing not found.'), { status: 404 })
   const result = await client.from('listings').delete().eq('id', input.id)
   if (result.error) throw result.error
-  await recordAudit(client, actor, 'listing_deleted', 'listing', input.id, req, { name: existing.data.name })
+  await recordChangeHistory(client, actor, 'listing_deleted', 'listing', input.id, req, existing, null)
+  await recordAudit(client, actor, 'listing_deleted', 'listing', input.id, req, { name: existing.name })
   await recordSecurityEvent(client, actor, 'ADMIN_LISTING_DELETED', req, { listing_id: input.id })
 }
 
@@ -191,18 +225,25 @@ async function loadTowns(client) {
 async function createTown(client, actor, input, req) {
   const result = await client.from('towns').insert(input)
   if (result.error) throw result.error
+  await recordChangeHistory(client, actor, 'town_created', 'town', input.slug, req, null, input)
   await recordAudit(client, actor, 'town_created', 'town', input.slug, req)
   await recordSecurityEvent(client, actor, 'ADMIN_TOWN_CREATED', req, { slug: input.slug })
 }
 
 async function updateTown(client, actor, input, req) {
+  const before = await getRow(client, 'towns', 'slug', input.id)
+  if (!before) throw Object.assign(new Error('Town not found.'), { status: 404 })
   const result = await client.from('towns').update(input.changes).eq('slug', input.id)
   if (result.error) throw result.error
+  const after = await getRow(client, 'towns', 'slug', input.id)
+  await recordChangeHistory(client, actor, 'town_updated', 'town', input.id, req, before, after)
   await recordAudit(client, actor, 'town_updated', 'town', input.id, req, input.changes)
   await recordSecurityEvent(client, actor, 'ADMIN_TOWN_UPDATED', req, { slug: input.id })
 }
 
 async function deleteTown(client, actor, input, req) {
+  const before = await getRow(client, 'towns', 'slug', input.id)
+  if (!before) throw Object.assign(new Error('Town not found.'), { status: 404 })
   const listings = await client.from('listings').select('id').eq('town', input.id).limit(1)
   if (listings.error) throw listings.error
   if (listings.data?.length) throw Object.assign(new Error('Move or archive this town’s listings before deleting it.'), { status: 409 })
@@ -211,6 +252,7 @@ async function deleteTown(client, actor, input, req) {
   if (events.data?.length) throw Object.assign(new Error('Move or archive this town’s events before deleting it.'), { status: 409 })
   const result = await client.from('towns').delete().eq('slug', input.id)
   if (result.error) throw result.error
+  await recordChangeHistory(client, actor, 'town_deleted', 'town', input.id, req, before, null)
   await recordAudit(client, actor, 'town_deleted', 'town', input.id, req)
   await recordSecurityEvent(client, actor, 'ADMIN_TOWN_DELETED', req, { slug: input.id })
 }
@@ -230,20 +272,29 @@ async function loadArticles(client) {
 async function saveArticle(client, actor, input, req) {
   const result = await client.from('admin_articles').insert({ ...input, author_id: actor.id, published_at: input.status === 'published' ? new Date().toISOString() : null })
   if (result.error) throw result.error
+  const after = await getRow(client, 'admin_articles', 'id', input.id)
+  await recordChangeHistory(client, actor, 'article_created', 'article', input.id, req, null, after || input)
   await recordAudit(client, actor, 'article_created', 'article', input.id, req, { slug: input.slug })
 }
 
 async function updateArticle(client, actor, input, req) {
+  const before = await getRow(client, 'admin_articles', 'id', input.id)
+  if (!before) throw Object.assign(new Error('Article not found.'), { status: 404 })
   const changes = { ...input.changes }
   if (changes.status === 'published') changes.published_at = new Date().toISOString()
   const result = await client.from('admin_articles').update(changes).eq('id', input.id)
   if (result.error) throw result.error
+  const after = await getRow(client, 'admin_articles', 'id', input.id)
+  await recordChangeHistory(client, actor, 'article_updated', 'article', input.id, req, before, after)
   await recordAudit(client, actor, 'article_updated', 'article', input.id, req, { status: changes.status })
 }
 
 async function deleteArticle(client, actor, input, req) {
+  const before = await getRow(client, 'admin_articles', 'id', input.id)
+  if (!before) throw Object.assign(new Error('Article not found.'), { status: 404 })
   const result = await client.from('admin_articles').delete().eq('id', input.id)
   if (result.error) throw result.error
+  await recordChangeHistory(client, actor, 'article_deleted', 'article', input.id, req, before, null)
   await recordAudit(client, actor, 'article_deleted', 'article', input.id, req)
 }
 
@@ -256,18 +307,26 @@ async function loadCategories(client) {
 async function saveCategory(client, actor, input, req) {
   const result = await client.from('admin_categories').insert(input)
   if (result.error) throw result.error
+  await recordChangeHistory(client, actor, 'category_created', 'category', input.id, req, null, input)
   await recordAudit(client, actor, 'category_created', 'category', input.id, req, { slug: input.slug })
 }
 
 async function updateCategory(client, actor, input, req) {
+  const before = await getRow(client, 'admin_categories', 'id', input.id)
+  if (!before) throw Object.assign(new Error('Category not found.'), { status: 404 })
   const result = await client.from('admin_categories').update(input.changes).eq('id', input.id)
   if (result.error) throw result.error
+  const after = await getRow(client, 'admin_categories', 'id', input.id)
+  await recordChangeHistory(client, actor, 'category_updated', 'category', input.id, req, before, after)
   await recordAudit(client, actor, 'category_updated', 'category', input.id, req)
 }
 
 async function deleteCategory(client, actor, input, req) {
+  const before = await getRow(client, 'admin_categories', 'id', input.id)
+  if (!before) throw Object.assign(new Error('Category not found.'), { status: 404 })
   const result = await client.from('admin_categories').delete().eq('id', input.id)
   if (result.error) throw result.error
+  await recordChangeHistory(client, actor, 'category_deleted', 'category', input.id, req, before, null)
   await recordAudit(client, actor, 'category_deleted', 'category', input.id, req)
 }
 
@@ -305,8 +364,12 @@ async function inviteUser(client, actor, input, req) {
 
 async function setUserStatus(client, actor, input, req) {
   if (actor.id === input.id) throw Object.assign(new Error('You cannot suspend your own account.'), { status: 403 })
+  const before = await getRow(client, 'profiles', 'id', input.id)
+  if (!before) throw Object.assign(new Error('User not found.'), { status: 404 })
   const result = await client.from('profiles').update({ status: input.status }).eq('id', input.id)
   if (result.error) throw result.error
+  const after = await getRow(client, 'profiles', 'id', input.id)
+  await recordChangeHistory(client, actor, input.status === 'suspended' ? 'user_suspended' : 'user_reactivated', 'profile', input.id, req, before, after)
   await recordAudit(client, actor, input.status === 'suspended' ? 'user_suspended' : 'user_reactivated', 'profile', input.id, req)
 }
 
@@ -399,15 +462,23 @@ async function reviewClaim(client, actor, input, req) {
 }
 
 async function updateListing(client, actor, input, req) {
+  const before = await getRow(client, 'listings', 'id', input.id)
+  if (!before) throw Object.assign(new Error('Listing not found.'), { status: 404 })
   const result = await client.from('listings').update(input.changes).eq('id', input.id)
   if (result.error) throw result.error
+  const after = await getRow(client, 'listings', 'id', input.id)
+  await recordChangeHistory(client, actor, 'listing_updated', 'listing', input.id, req, before, after)
   await recordAudit(client, actor, 'listing_updated', 'listing', input.id, req, input.changes)
   await recordSecurityEvent(client, actor, 'ADMIN_LISTING_UPDATED', req, { listing_id: input.id, changes: input.changes })
 }
 
 async function updateEvent(client, actor, input, req) {
+  const before = await getRow(client, 'events', 'id', input.id)
+  if (!before) throw Object.assign(new Error('Event not found.'), { status: 404 })
   const result = await client.from('events').update({ status: input.status }).eq('id', input.id)
   if (result.error) throw result.error
+  const after = await getRow(client, 'events', 'id', input.id)
+  await recordChangeHistory(client, actor, 'event_status_updated', 'event', input.id, req, before, after)
   await recordAudit(client, actor, 'event_status_updated', 'event', input.id, req, { status: input.status })
   await recordSecurityEvent(client, actor, 'ADMIN_EVENT_UPDATED', req, { event_id: input.id, status: input.status })
 }
@@ -415,8 +486,12 @@ async function updateEvent(client, actor, input, req) {
 async function updateUserRole(client, actor, input, req) {
   if (actor.id === input.id) throw Object.assign(new Error('You cannot change your own administrator role.'), { status: 403 })
   if (input.role === 'super_admin' && actor.role !== 'super_admin') throw Object.assign(new Error('Only a super administrator can grant that role.'), { status: 403 })
+  const before = await getRow(client, 'profiles', 'id', input.id)
+  if (!before) throw Object.assign(new Error('User not found.'), { status: 404 })
   const result = await client.from('profiles').update({ role: input.role }).eq('id', input.id)
   if (result.error) throw result.error
+  const after = await getRow(client, 'profiles', 'id', input.id)
+  await recordChangeHistory(client, actor, 'admin_role_changed', 'profile', input.id, req, before, after)
   await recordAudit(client, actor, 'admin_role_changed', 'profile', input.id, req, { role: input.role })
   await recordSecurityEvent(client, actor, 'ADMIN_ROLE_CHANGED', req, { profile_id: input.id, role: input.role })
 }
@@ -442,6 +517,11 @@ export default async function handler(req, res) {
       const result = await client.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100)
       if (result.error) throw result.error
       return response(res, 200, { ok: true, logs: result.data || [] })
+    }
+    if (action === 'change_history') {
+      const result = await client.from('admin_change_history').select('*').order('created_at', { ascending: false }).limit(200)
+      if (result.error && !/relation .* does not exist|schema cache/i.test(result.error.message || '')) throw result.error
+      return response(res, 200, { ok: true, history: result.data || [] })
     }
     if (action === 'security_events') {
       const result = await client.from('security_events').select('*').order('created_at', { ascending: false }).limit(100)
@@ -511,17 +591,25 @@ export default async function handler(req, res) {
     if (action === 'delete_category') await deleteCategory(client, profile, input, req)
     if (action === 'update_settings' || action === 'update_public_site_settings') {
       const keys = Object.keys(input.settings)
-      const existing = await client.from('site_settings').select('key,is_public').in('key', keys)
+      const existing = await client.from('site_settings').select('*').in('key', keys)
       if (existing.error) throw existing.error
       const publicByKey = Object.fromEntries((existing.data || []).map((entry) => [entry.key, entry.is_public]))
       const entries = Object.entries(input.settings).map(([key, value]) => ({ key, value, is_public: isPublicSiteSettingKey(key) || publicByKey[key] === true, updated_by: profile.id, updated_at: new Date().toISOString() }))
       const result = await client.from('site_settings').upsert(entries, { onConflict: 'key' })
       if (result.error) throw result.error
+      const updated = await client.from('site_settings').select('*').in('key', keys)
+      if (updated.error) throw updated.error
+      const beforeSettings = Object.fromEntries((existing.data || []).map((entry) => [entry.key, entry]))
+      const afterSettings = Object.fromEntries((updated.data || []).map((entry) => [entry.key, entry]))
+      await recordChangeHistory(client, profile, 'settings_updated', 'site_settings', 'bulk', req, beforeSettings, afterSettings)
       await recordAudit(client, profile, 'settings_updated', 'site_settings', 'bulk', req, { keys: Object.keys(input.settings) })
     }
     if (action === 'update_feature_flag') {
+      const before = await getRow(client, 'feature_flags', 'key', input.key)
       const result = await client.from('feature_flags').upsert({ key: input.key, enabled: input.enabled, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'key' })
       if (result.error) throw result.error
+      const after = await getRow(client, 'feature_flags', 'key', input.key)
+      await recordChangeHistory(client, profile, 'feature_flag_updated', 'feature_flag', input.key, req, before, after)
       await recordAudit(client, profile, 'feature_flag_updated', 'feature_flag', input.key, req, { enabled: input.enabled })
     }
     if (action === 'newsletter_send') {
@@ -532,8 +620,11 @@ export default async function handler(req, res) {
     if (action === 'set_user_status') await setUserStatus(client, profile, input, req)
     if (action === 'revoke_user_sessions') await revokeUserSessions(client, profile, input, req)
     if (action === 'update_ai_settings') {
+      const before = await getRow(client, 'ai_settings', 'id', true)
       const result = await client.from('ai_settings').upsert({ id: true, ...input.settings, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'id' })
       if (result.error) throw result.error
+      const after = await getRow(client, 'ai_settings', 'id', true)
+      await recordChangeHistory(client, profile, 'ai_settings_updated', 'ai_settings', 'default', req, before, after)
       await recordAudit(client, profile, 'ai_settings_updated', 'ai_settings', 'default', req, { model: input.settings.model, enabled: input.settings.enabled })
     }
     if (action === 'media_delete') {

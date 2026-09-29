@@ -11,6 +11,7 @@ assert.equal(canRole('admin', 'admins.manage'), false)
 assert.equal(canRole('editor', 'businesses.manage'), true)
 assert.equal(canRole('business_owner', 'dashboard.read'), false)
 assert.equal(isKnownAction('update_listing'), true)
+assert.equal(isKnownAction('change_history'), true)
 assert.equal(isKnownAction('delete_everything'), false)
 
 const safeListingUpdate = validateAdminPayload('update_listing', {
@@ -29,10 +30,15 @@ assert.match(apiSource, /auth\.getUser/)
 assert.match(apiSource, /validateAdminPayload/)
 assert.match(apiSource, /canRole/)
 assert.match(apiSource, /enforceSameOrigin/)
+assert.match(apiSource, /recordChangeHistory/)
 // A service-role key may be read by a server-only function for provider actions,
 // but it must never be in browser code or a public environment variable.
 assert.doesNotMatch(apiSource, /(?:VITE|NEXT_PUBLIC)_SUPABASE_SERVICE_ROLE_KEY/)
 const browserSource = await readFile(new URL('../src/admin-panel-secure.jsx', import.meta.url), 'utf8')
 assert.doesNotMatch(browserSource, /SUPABASE_SERVICE_ROLE_KEY/)
+const historyMigration = await readFile(new URL('../supabase/migrations/20260929170000_admin_change_history.sql', import.meta.url), 'utf8')
+assert.match(historyMigration, /enable row level security/)
+assert.match(historyMigration, /Authorized users can read change history/)
+assert.match(historyMigration, /Authorized users can write change history/)
 
 console.log('Admin security tests passed.')

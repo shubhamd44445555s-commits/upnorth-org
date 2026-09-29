@@ -5,6 +5,7 @@ import {
   loadAiSettings,
   loadAuditLogs,
   loadArticles,
+  loadChangeHistory,
   loadCategories,
   loadContactMessages,
   loadFeatureFlags,
@@ -30,7 +31,7 @@ const tabs = [
   ['overview', 'Overview', 'dashboard.read'], ['submissions', 'Submissions', 'submissions.review'], ['claims', 'Claims', 'claims.review'],
   ['listings', 'Businesses', 'businesses.read'], ['towns', 'Towns', 'towns.manage'], ['events', 'Events', 'events.manage'],
   ['newsletter', 'Newsletter', 'newsletter.read'], ['contact', 'Messages', 'contact.read'], ['media', 'Media', 'media.manage'],
-  ['users', 'Users', 'users.read'], ['audit', 'Audit logs', 'audit.read'], ['security', 'Security', 'security.read'],
+  ['users', 'Users', 'users.read'], ['audit', 'Audit logs', 'audit.read'], ['history', 'Change history', 'audit.read'], ['security', 'Security', 'security.read'],
   ['system', 'AI & System', 'ai.read'], ['ai-settings', 'AI settings', 'ai.read'], ['content', 'Articles / CMS', 'articles.manage'], ['taxonomy', 'Categories / Places', 'categories.manage'], ['settings', 'Site Content & Design', 'settings.read'], ['locked', 'Billing controls', 'settings.read'],
 ]
 
@@ -79,8 +80,8 @@ function UsersManager({ users, profile, user, onRefresh, canManageUsers = false,
   return <div className="admin-content"><PanelHeading eyebrow="Identity & access" title="Users and roles" description="Role changes, suspension, and invitations are server-authorized. Self-escalation is blocked." />{error && <div className="admin-alert admin-alert-error">{error}</div>}{inviteMessage && <div className="admin-alert admin-alert-success">{inviteMessage}</div>}{canManageUsers && !serviceConfigured && <div className="admin-tool-note">Invite and global session controls are pending the client’s private Supabase service-role setup.</div>}{canManageUsers && serviceConfigured && <form className="admin-tool-form admin-inline-form" onSubmit={invite}><Field label="Invite email"><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></Field><Field label="Role"><select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}><option value="business_owner">Business owner</option><option value="viewer">Viewer</option><option value="editor">Editor</option><option value="admin">Admin</option></select></Field><button className="admin-button admin-button-approve" disabled={busy === 'invite'}>{busy === 'invite' ? 'Inviting…' : 'Invite user'}</button></form>}<div className="admin-tool-table">{users.map((entry) => <article className="admin-tool-row" key={entry.id}><div><strong>{entry.email}</strong><span>{entry.id} · {entry.status || 'active'}</span></div><div className="admin-row-actions">{profile?.role === 'super_admin' ? <select className="admin-role-select" value={entry.role} disabled={busy === entry.id || entry.id === user.id} onChange={(event) => changeRole(entry, event.target.value)}><option value="super_admin">Super admin</option><option value="admin">Admin</option><option value="editor">Editor</option><option value="moderator">Moderator</option><option value="business_manager">Business manager</option><option value="viewer">Viewer</option><option value="business_owner">Business owner</option></select> : <span className="admin-status">{entry.role}</span>}{canManageUsers && serviceConfigured && entry.id !== user.id && <><button className="admin-button" type="button" disabled={busy === entry.id} onClick={() => changeStatus(entry)}>{entry.status === 'suspended' ? 'Reactivate' : 'Suspend'}</button><button className="admin-button" type="button" disabled={busy === entry.id} onClick={async () => { if (!window.confirm(`Revoke all sessions for ${entry.email}?`)) return; setBusy(entry.id); try { await revokeAdminUserSessions(entry.id); await onRefresh() } catch (revokeError) { setError(revokeError.message || 'Could not revoke sessions.') } finally { setBusy('') } }}>Revoke sessions</button></>}</div></article>)}</div></div>
 }
 
-function LogList({ title, eyebrow, rows, security = false }) {
-  return <div className="admin-content"><PanelHeading eyebrow={eyebrow} title={title} description="Append-oriented records for operational review." /><div className="admin-log-table">{rows.length ? rows.map((entry) => <article className="admin-log-row" key={entry.id}><div><strong>{security ? entry.event_type : entry.action}</strong><span>{security ? `${entry.success ? 'Successful' : 'Failed'} · ${entry.ip_address || 'IP unavailable'}` : `${entry.entity_type} · ${entry.entity_id}`}</span></div><time>{entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</time></article>) : <div className="admin-tool-empty">No records yet.</div>}</div></div>
+function LogList({ title, eyebrow, rows, security = false, history = false }) {
+  return <div className="admin-content"><PanelHeading eyebrow={eyebrow} title={title} description={history ? 'Every saved admin change keeps a before/after snapshot and changed-field list.' : 'Append-oriented records for operational review.'} /><div className="admin-log-table">{rows.length ? rows.map((entry) => <article className="admin-log-row" key={entry.id}><div><strong>{security ? entry.event_type : entry.action}</strong><span>{security ? `${entry.success ? 'Successful' : 'Failed'} · ${entry.ip_address || 'IP unavailable'}` : history ? `${entry.entity_type} · ${entry.entity_id} · ${entry.changed_fields?.length ? entry.changed_fields.join(', ') : 'record snapshot'}` : `${entry.entity_type} · ${entry.entity_id}`}</span></div><time>{entry.created_at ? new Date(entry.created_at).toLocaleString() : ''}</time></article>) : <div className="admin-tool-empty">No records yet. Apply the change-history migration if this is a new environment.</div>}</div></div>
 }
 
 export default function AdminWorkspace() {
@@ -89,7 +90,7 @@ export default function AdminWorkspace() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [data, setData] = useState(null)
-  const [view, setView] = useState({ users: [], audit: [], security: [], subscribers: [], messages: [], towns: [], media: [], system: {}, articles: [], categories: [], settings: [], flags: [], aiSettings: {} })
+  const [view, setView] = useState({ users: [], audit: [], history: [], security: [], subscribers: [], messages: [], towns: [], media: [], system: {}, articles: [], categories: [], settings: [], flags: [], aiSettings: {} })
   const permissions = data?.actor?.permissions || []
   const can = (permission) => permissions.includes(permission)
 
@@ -99,6 +100,7 @@ export default function AdminWorkspace() {
     try {
       if (tab === 'users') { const [users, system] = await Promise.all([loadAdminUsers(), loadSystemStatus()]); setView((current) => ({ ...current, users, system })) }
       if (tab === 'audit') { const audit = await loadAuditLogs(); setView((current) => ({ ...current, audit })) }
+      if (tab === 'history') { const history = await loadChangeHistory(); setView((current) => ({ ...current, history })) }
       if (tab === 'security') { const security = await loadSecurityEvents(); setView((current) => ({ ...current, security })) }
       if (tab === 'newsletter') { const [subscribers, system] = await Promise.all([loadNewsletterSubscribers(), loadSystemStatus()]); setView((current) => ({ ...current, subscribers, system })) }
       if (tab === 'contact') { const messages = await loadContactMessages(); setView((current) => ({ ...current, messages })) }
@@ -144,6 +146,7 @@ export default function AdminWorkspace() {
     if (active === 'media') return <div className="admin-content"><MediaManager media={view.media} canManage={can('media.manage')} canAssignSiteContent={can('site_content.update')} onRefresh={() => loadTab('media')} /></div>
     if (active === 'users') return <UsersManager users={view.users} profile={profile} user={user} canManageUsers={can('users.manage')} serviceConfigured={Boolean(view.system.supabaseServiceRoleConfigured)} onRefresh={() => loadTab('users')} />
     if (active === 'audit') return <LogList title="Audit logs" eyebrow="Accountability" rows={view.audit} />
+    if (active === 'history') return <LogList title="Change history" eyebrow="Version trail" rows={view.history} history />
     if (active === 'security') return <LogList title="Security events" eyebrow="Security signals" rows={view.security} security />
     if (active === 'system') return <div className="admin-content"><SystemManager status={view.system} /></div>
     if (active === 'ai-settings') return <div className="admin-content"><AiSettingsManager settings={view.aiSettings} canUpdate={can('ai.update')} onRefresh={() => loadTab('ai-settings')} /></div>

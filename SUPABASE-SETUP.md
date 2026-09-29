@@ -92,8 +92,9 @@ The generated migrations are:
 - `supabase/migrations/20260928120000_secure_admin_panel.sql` — secure admin roles, permissions, audit/security records.
 - `supabase/migrations/20260929130000_admin_content_controls.sql` — articles, categories, settings, AI metadata, and admin controls.
 - `supabase/migrations/20260929160000_public_site_settings.sql` — public read policy for explicitly published site settings and the narrow `site_content.update` permission.
+- `supabase/migrations/20260929170000_admin_change_history.sql` — append-only before/after snapshots for administrator changes, protected by audit permissions.
 
-Run them in timestamp order. The last migration is required for the public website to read CMS settings and for an `admin` role to save Site Content & Design changes.
+Run them in timestamp order. The last two migrations are required for the public website to read CMS settings, for an `admin` role to save Site Content & Design changes, and for the Change history panel to display saved revisions.
 
 ## Deployment checklist
 

@@ -60,6 +60,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
 export const ADMIN_ACTIONS = Object.freeze([
   'overview',
   'audit_logs',
+  'change_history',
   'security_events',
   'users',
   'newsletter_subscribers',
@@ -89,6 +90,7 @@ export const ADMIN_ACTIONS = Object.freeze([
 const ACTION_PERMISSIONS = Object.freeze({
   overview: 'dashboard.read',
   audit_logs: 'audit.read',
+  change_history: 'audit.read',
   security_events: 'security.read',
   users: 'users.read',
   newsletter_subscribers: 'newsletter.read',

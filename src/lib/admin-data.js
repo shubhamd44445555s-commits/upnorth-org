@@ -26,6 +26,11 @@ export async function loadAuditLogs() {
   return result.logs || []
 }
 
+export async function loadChangeHistory() {
+  const result = await adminRequest('change_history')
+  return result.history || []
+}
+
 export async function loadSecurityEvents() {
   const result = await adminRequest('security_events')
   return result.events || []
