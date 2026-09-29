@@ -57,8 +57,8 @@ The editor accepts controlled text, approved design tokens, known sections, and 
 - Publish or update articles.
 - Manage title, slug, excerpt, body, hero image, SEO title, and SEO description.
 - Published articles are available on `/blog` and `/blog/[slug]`; the previous `/articles` routes remain supported.
-- Every create, edit, publish/unpublish, delete, settings, role, and status change creates a server-side before/after record in the Change history section.
-- Authorized administrators can review which fields changed, who changed them, and when.
+- Supported content create, edit, publish/unpublish, and delete operations, along with settings, role, and status changes, create a server-side before/after record.
+- Authorized administrators can review the changed fields, actor ID, and timestamp in Change history; the full before/after snapshots remain protected in Supabase.
 
 ### Categories, messages, and newsletter
 
