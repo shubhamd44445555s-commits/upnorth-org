@@ -13,6 +13,7 @@ import {
 } from './lib/admin-data'
 import { getProfile, isAdminProfile, signInWithPassword, signOut } from './lib/auth'
 import { supabase } from './lib/supabase'
+import './styles.part3.css'
 import './styles.admin.css'
 
 const tabs = [
