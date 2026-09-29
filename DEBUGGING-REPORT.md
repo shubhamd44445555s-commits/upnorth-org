@@ -4,7 +4,7 @@
 **Project:** UpNorth.org  
 **Testing domain:** https://glent.xyz  
 **Repository:** https://github.com/shubhamd44445555s-commits/upnorth-org  
-**Latest verified commit:** `49ed6fd`
+**Latest verified commit:** `cc471f6`
 
 ## 1. Executive summary
 
@@ -31,6 +31,8 @@ An additional defense-in-depth improvement was added for CMS image URLs: only va
 | Admin API malformed request | Passed | Empty POST returned HTTP 400 |
 | Admin API unauthenticated boundary | Passed | Valid overview action without auth returned HTTP 401 |
 | Ask API method boundary | Passed | GET `/api/ask` returned HTTP 405 |
+| Blog route smoke test | Passed | `/blog` rendered the expected Blog heading without browser errors |
+| Change-history security coverage | Passed | Append-only migration, RLS policies, server snapshots, and security assertions added |
 | Git working tree | Passed | Clean after final commit |
 
 ## 3. Routes smoke-tested
@@ -48,6 +50,7 @@ The following public and protected entry routes were checked:
 - `/towns/minocqua`
 - `/listing/pine-shadow-cabins`
 - `/articles`
+- `/blog`
 - `/login`
 - `/admin`
 - `/pricing`
@@ -101,6 +104,8 @@ Verified in code and UI structure:
 - Homepage media-slot assignment
 - Site Content & Design CMS
 - Articles and public guides
+- Blog entry point and article detail aliases (`/blog`, `/blog/[slug]`; legacy `/articles` routes preserved)
+- Append-only before/after change history for admin edits
 - Categories and taxonomy
 - Newsletter subscriber export
 - Contact-message inbox
@@ -117,17 +122,19 @@ These were not treated as failures because they require client-owned external co
 - Supabase service-role key is intentionally not configured; user invitation and global session revocation remain provider-dependent.
 - Stripe and pricing are intentionally deferred until client approval.
 - Final licensed or client-approved image assets still need to replace remote Unsplash assets for production use.
-- Live Supabase content writes, media upload, and CMS publishing require the new Supabase public-settings migration to be applied.
+- Live Supabase content writes, media upload, CMS publishing, and Change history require the Supabase CMS/history migrations to be applied.
 - Local sandbox browser tests could not reach Supabase consistently; the application correctly used its existing fallback content. Live route checks on `glent.xyz` succeeded.
 - Analytics, legal copy, production monitoring, backups, and final domain/provider ownership still require client decisions.
 
 ## 8. Required Supabase migration
 
-Run this additive migration after the existing admin content migration:
+Run these additive migrations after the existing admin content migration:
 
 `supabase/migrations/20260929160000_public_site_settings.sql`
 
-It enables public read access only for `is_public = true` settings and adds the narrow `site_content.update` permission for approved CMS values.
+`supabase/migrations/20260929170000_admin_change_history.sql`
+
+The first enables public read access only for `is_public = true` settings and adds the narrow `site_content.update` permission for approved CMS values. The second creates the append-only before/after snapshots used by the Admin Change history panel.
 
 ## 9. Release history
 
@@ -135,6 +142,7 @@ It enables public read access only for `is_public = true` settings and adds the 
 - `0ec5be6` — broken remote image correction
 - `e938d6a` — safe admin API client-error handling
 - `49ed6fd` — CMS image URL hardening
+- `cc471f6` — public Blog entry point and append-only admin change history
 
 ## 10. Final status
 

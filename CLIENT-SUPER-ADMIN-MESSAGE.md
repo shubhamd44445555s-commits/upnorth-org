@@ -46,7 +46,7 @@ The admin can edit the public frontend without changing code:
 - Footer labels and footer tagline.
 - Global colors, heading font, body font, corner roundness, and spacing scale.
 - Homepage section visibility and order.
-- Published articles automatically appear on the homepage and the public `/articles` pages.
+- Published articles automatically appear on the homepage and the public `/blog` pages.
 
 The editor accepts controlled text, approved design tokens, known sections, and validated image URLs. It does not allow arbitrary scripts, unsafe HTML, or unrestricted CSS.
 
@@ -56,7 +56,9 @@ The editor accepts controlled text, approved design tokens, known sections, and 
 - Save articles as drafts.
 - Publish or update articles.
 - Manage title, slug, excerpt, body, hero image, SEO title, and SEO description.
-- Published articles are available on `/articles` and `/articles/[slug]`.
+- Published articles are available on `/blog` and `/blog/[slug]`; the previous `/articles` routes remain supported.
+- Every create, edit, publish/unpublish, delete, settings, role, and status change creates a server-side before/after record in the Change history section.
+- Authorized administrators can review which fields changed, who changed them, and when.
 
 ### Categories, messages, and newsletter
 
@@ -72,6 +74,7 @@ The editor accepts controlled text, approved design tokens, known sections, and 
 - Super Admin can manage administrator roles subject to server-side checks.
 - Account suspension/reactivation and session revocation are available when the private Supabase service-role configuration is added.
 - Review audit logs and security events.
+- Review the append-only Change history with before/after snapshots for administrative edits.
 - AI provider settings can be managed as non-secret configuration; API keys remain deployment secrets.
 
 ## Security architecture
