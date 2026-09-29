@@ -8,7 +8,7 @@ The secure admin workspace is available at `/admin` after Supabase email/passwor
 - Towns: create, edit, publish/draft, hero image and quick facts, guarded delete.
 - Events: publish/unpublish.
 - Submissions and claims: approve/reject with audit logging.
-- Media: image upload/delete through the `listing-images` Supabase Storage bucket, with a 5 MB image limit in the UI.
+- Media: image upload/delete through the `listing-images` Supabase Storage bucket, with a 5 MB image limit in the UI. Authorized users can assign an uploaded image to a known homepage slot; the assignment stores only the validated public Storage URL.
 - Newsletter: subscriber list, safe CSV export, and a Resend plain-text broadcast adapter.
 - Contact messages: read-only operations inbox.
 - Articles/CMS: draft/published editorial articles with SEO fields.

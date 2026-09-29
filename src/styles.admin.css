@@ -74,6 +74,8 @@
 .admin-subheading-row > span { color: var(--muted); font-size: 10px; }
 .admin-tool-field input[type="color"] { width: 54px; height: 34px; padding: 3px; cursor: pointer; }
 .admin-cms-group .admin-tool-table { margin-top: 4px; }
+.admin-media-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.admin-media-card small { display: block; margin-top: 6px; color: var(--green); font-size: 10px; }
 .admin-security-note { margin: 16px 0 0; color: #789088; font-size: 10px; line-height: 1.55; }
 .admin-log-table { margin-top: 18px; border: 1px solid #e2e9e3; background: white; }
 .admin-log-row { display: flex; justify-content: space-between; gap: 20px; padding: 15px 18px; border-bottom: 1px solid #e8eee8; }

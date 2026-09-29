@@ -141,7 +141,7 @@ export default function AdminWorkspace() {
     if (active === 'events') return <EventsManager events={data?.events || []} canManage={can('events.manage')} onRefresh={refresh} />
     if (active === 'newsletter') return <div className="admin-content"><NewsletterManager subscribers={view.subscribers} /><NewsletterSendManager canSend={can('newsletter.send')} configured={Boolean(view.system.resendConfigured)} /></div>
     if (active === 'contact') return <div className="admin-content"><ContactManager messages={view.messages} /></div>
-    if (active === 'media') return <div className="admin-content"><MediaManager media={view.media} canManage={can('media.manage')} onRefresh={() => loadTab('media')} /></div>
+    if (active === 'media') return <div className="admin-content"><MediaManager media={view.media} canManage={can('media.manage')} canAssignSiteContent={can('site_content.update')} onRefresh={() => loadTab('media')} /></div>
     if (active === 'users') return <UsersManager users={view.users} profile={profile} user={user} canManageUsers={can('users.manage')} serviceConfigured={Boolean(view.system.supabaseServiceRoleConfigured)} onRefresh={() => loadTab('users')} />
     if (active === 'audit') return <LogList title="Audit logs" eyebrow="Accountability" rows={view.audit} />
     if (active === 'security') return <LogList title="Security events" eyebrow="Security signals" rows={view.security} security />
