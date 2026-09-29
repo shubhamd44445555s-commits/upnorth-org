@@ -176,6 +176,30 @@ async function loadOverview(client) {
   const firstError = submissions.error || claims.error || listings.error || events.error || towns.error
   if (firstError) throw firstError
   const listingRows = listings.data || []
+  const eventRows = events.data || []
+  const submissionRows = submissions.data || []
+  const claimRows = claims.data || []
+  const countBy = (rows, key) => rows.reduce((counts, row) => {
+    const value = row[key] || 'unknown'
+    counts[value] = (counts[value] || 0) + 1
+    return counts
+  }, {})
+  const activityRows = [...submissionRows, ...claimRows, ...listingRows, ...eventRows]
+  const activityLast7Days = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date()
+    day.setHours(0, 0, 0, 0)
+    day.setDate(day.getDate() - (6 - index))
+    const nextDay = new Date(day)
+    nextDay.setDate(day.getDate() + 1)
+    return {
+      date: day.toISOString().slice(0, 10),
+      label: day.toLocaleDateString('en-US', { weekday: 'short' }),
+      value: activityRows.filter((row) => {
+        const createdAt = row.created_at ? new Date(row.created_at) : null
+        return createdAt && createdAt >= day && createdAt < nextDay
+      }).length,
+    }
+  })
   return {
     submissions: submissions.data || [],
     claims: claims.data || [],
@@ -185,11 +209,20 @@ async function loadOverview(client) {
     stats: {
       businesses: listingRows.length,
       featuredBusinesses: listingRows.filter((item) => item.is_featured).length,
-      events: (events.data || []).length,
+      enhancedBusinesses: listingRows.filter((item) => item.is_enhanced).length,
+      publishedBusinesses: listingRows.filter((item) => item.status === 'published').length,
+      draftBusinesses: listingRows.filter((item) => item.status === 'draft').length,
+      events: eventRows.length,
+      publishedEvents: eventRows.filter((item) => item.status === 'published').length,
+      draftEvents: eventRows.filter((item) => item.status === 'draft').length,
       towns: (towns.data || []).length,
-      pendingApprovals: (submissions.data || []).filter((item) => item.status === 'pending').length + (claims.data || []).filter((item) => item.status === 'pending').length,
+      pendingApprovals: submissionRows.filter((item) => item.status === 'pending').length + claimRows.filter((item) => item.status === 'pending').length,
       newsletterSubscribers: subscribers.count || 0,
       contactMessages: contacts.count || 0,
+      listingCategories: countBy(listingRows, 'category'),
+      listingStatuses: countBy(listingRows, 'status'),
+      eventStatuses: countBy(eventRows, 'status'),
+      activityLast7Days,
     },
   }
 }
