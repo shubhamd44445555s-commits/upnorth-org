@@ -24,6 +24,7 @@ const permissionNames = [
   'newsletter.send',
   'users.manage',
   'ai.update',
+  'imports.manage',
 ]
 
 const allPermissions = Object.freeze(permissionNames)
@@ -39,11 +40,13 @@ export const ROLE_PERMISSIONS = Object.freeze({
     'users.read', 'ai.read', 'settings.read', 'media.manage', 'audit.read', 'audit.write',
     'security.read', 'categories.manage', 'articles.manage', 'newsletter.send',
     'site_content.update',
+    'imports.manage',
   ]),
   editor: Object.freeze([
     'dashboard.read', 'businesses.read', 'businesses.manage', 'submissions.review',
     'claims.review', 'towns.manage', 'events.manage', 'media.manage', 'audit.read', 'audit.write',
     'categories.manage', 'articles.manage',
+    'imports.manage',
   ]),
   moderator: Object.freeze([
     'dashboard.read', 'businesses.read', 'submissions.review', 'claims.review', 'events.manage',
@@ -52,6 +55,7 @@ export const ROLE_PERMISSIONS = Object.freeze({
   business_manager: Object.freeze([
     'dashboard.read', 'businesses.read', 'businesses.manage', 'submissions.review', 'claims.review',
     'audit.write',
+    'imports.manage',
   ]),
   viewer: Object.freeze(['dashboard.read', 'businesses.read']),
   business_owner: Object.freeze([]),
@@ -84,7 +88,7 @@ export const ADMIN_ACTIONS = Object.freeze([
   'settings', 'update_settings', 'feature_flags', 'update_feature_flag',
   'update_public_site_settings',
   'newsletter_send', 'invite_user', 'set_user_status', 'revoke_user_sessions',
-  'ai_settings', 'update_ai_settings',
+  'ai_settings', 'update_ai_settings', 'import_listings',
 ])
 
 const ACTION_PERMISSIONS = Object.freeze({
@@ -128,6 +132,7 @@ const ACTION_PERMISSIONS = Object.freeze({
   revoke_user_sessions: 'users.manage',
   ai_settings: 'ai.read',
   update_ai_settings: 'ai.update',
+  import_listings: 'imports.manage',
 })
 
 export function permissionsForRole(role) {
@@ -206,6 +211,10 @@ function validatePublicSetting(key, value) {
   }
   if (key.startsWith('images.')) {
     if (typeof value !== 'string' || value.length > 1000 || /[\s"'<>]/.test(value)) throw new Error('Image URL is invalid.')
+    if (value.startsWith('/')) {
+      if (!/^\/(assets\/|upnorth-logo-mark\.png$)/.test(value)) throw new Error('Image URL is invalid.')
+      return value
+    }
     try {
       const url = new URL(value)
       if (url.protocol !== 'https:') throw new Error('Image URL is invalid.')
@@ -271,6 +280,21 @@ export function validateAdminPayload(action, body = {}) {
       website: body.website ? cleanText(body.website, 'website', 500) : null,
       address: body.address ? cleanText(body.address, 'address', 300) : null,
       status: body.status === 'draft' ? 'draft' : 'published',
+    }
+  }
+
+  if (action === 'import_listings') {
+    if (!Array.isArray(body.rows) || body.rows.length < 1 || body.rows.length > 10) throw new Error('Import batches must contain between 1 and 10 rows.')
+    const fields = ['id', 'slug', 'name', 'category', 'subtype', 'town', 'price_range', 'tags', 'description', 'images', 'phone', 'website', 'address']
+    return {
+      rows: body.rows.map((row) => {
+        const source = row && typeof row === 'object' && !Array.isArray(row) ? row : {}
+        return Object.fromEntries(fields.map((field) => {
+          const value = source[field]
+          if (value === undefined || value === null) return [field, '']
+          return [field, typeof value === 'string' || typeof value === 'number' ? String(value).slice(0, field === 'description' ? 2000 : 1000).trim() : '']
+        }))
+      }),
     }
   }
 

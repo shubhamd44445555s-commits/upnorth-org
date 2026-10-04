@@ -352,6 +352,13 @@
 .admin-tool-note { margin-top: 22px; padding: 18px 20px; border: 1px solid #eadab8; border-radius: 12px; background: #fffaf0; color: #765d31; }
 .admin-tool-note strong { font-size: 12px; }
 .admin-tool-note p { margin: 7px 0 0; font-size: 10px; line-height: 1.55; }
+.admin-import-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 16px 0; padding: 14px 16px; border: 1px solid #dfe9e1; border-radius: 12px; background: #f8fbf8; color: #557568; font-size: 10px; }
+.admin-import-summary strong { margin-right: auto; color: #153f36; }
+.admin-import-preview { margin-top: 14px; }
+.admin-import-preview small { color: #7b9086; font-size: 9px; }
+.admin-import-result { display: grid; gap: 6px; margin-top: 16px; padding: 16px; border: 1px solid #bed8c4; border-radius: 12px; background: #f2fbf3; color: #2a6e50; font-size: 10px; }
+.admin-import-result strong { font-size: 13px; }
+.admin-import-result small { color: #7a6040; }
 .admin-alert-success { border: 1px solid rgba(60, 165, 121, .35); background: rgba(60, 165, 121, .12); color: #24704f; padding: 12px 14px; border-radius: 10px; margin: 12px 0; }
 .admin-inline-form { display: flex; align-items: end; gap: 12px; margin-bottom: 18px; }
 .admin-inline-form .admin-tool-field { flex: 1; }

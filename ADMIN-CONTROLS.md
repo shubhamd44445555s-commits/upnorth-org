@@ -10,6 +10,9 @@ The secure admin workspace is available at `/admin` after Supabase email/passwor
 - Submissions and claims: approve/reject with audit logging.
 - Media: image upload/delete through the `listing-images` Supabase Storage bucket, with a 5 MB image limit in the UI. Authorized users can assign an uploaded image to a known homepage slot; the assignment stores only the validated public Storage URL.
 - Newsletter: subscriber list, safe CSV export, and a Resend plain-text broadcast adapter.
+- Bulk listing import: CSV preview, draft-only import, duplicate detection, questionable-field flags, and server-side audit logging. Excel sheets can be exported to CSV without executing formulas or macros.
+- Branding/media: separate dark logo, light logo, favicon, and homepage image slots; PNG/JPG/WebP plus sanitized SVG upload validation.
+- Integrations: optional server-side Slack channel routing and provider-neutral CRM webhook adapter. Stripe/pricing remains intentionally locked.
 - Contact messages: read-only operations inbox.
 - Articles/CMS: draft/published editorial articles with SEO fields.
 - Categories/places: taxonomy records for listing, place, and real-estate categories.

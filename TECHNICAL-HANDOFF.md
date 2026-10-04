@@ -126,6 +126,6 @@ Current deployment and remaining launch work:
 - Remote image URLs may change or have licensing restrictions.
 - LocalStorage/direct static data remains only as a fallback when Supabase is unavailable; normal submissions are stored in Supabase.
 - Resend DNS records for `glent.xyz` are publicly visible, but Resend still reports the domain as pending verification.
-- Remote Unsplash images remain in use until approved/licensed replacement assets are supplied.
+- The client-provided autumn lake, woods, and river photos are now bundled under `public/assets/` and used as the local hero/life/discover defaults. The admin media manager supports future replacement through approved local/HTTPS assignments.
 - Client-side paid-tier flags are not a payment source of truth until Stripe billing/webhooks are approved and connected.
 - Event dates can become stale without an editorial process.

@@ -6,6 +6,7 @@ import { createCheckoutPlaceholder, pricingTiers } from './config/pricing'
 import { listingBySlug, listings } from './data/listings'
 import { townBySlug, towns } from './data/towns'
 import { submitBusinessListing } from './lib/content-data'
+import { DEFAULT_SITE_CONFIG, loadPublicSiteConfig } from './lib/site-config'
 import { installSeo } from './seo'
 import './styles.part3.css'
 
@@ -16,13 +17,13 @@ function P3SafeImage({ src, alt = '', ...props }) {
   return <img {...props} src={source} alt={alt} onError={() => setSource((current) => current === p3FallbackImage ? current : p3FallbackImage)} />
 }
 
-function P3Logo({ light = false }) { return <a className={`logo ${light ? 'logo-light' : ''}`} href="/"><img className="logo-mark-image" src="/upnorth-logo-mark.png" alt="" aria-hidden="true" /><span className="logo-copy"><strong>UpNorth.org</strong><small>EXPLORE · STAY · DO · BELONG</small></span></a> }
+function P3Logo({ light = false, config = DEFAULT_SITE_CONFIG }) { const fallback = DEFAULT_SITE_CONFIG['images.brand.logo']; const logoImage = config[light ? 'images.brand.logo_light' : 'images.brand.logo_dark'] || fallback; return <a className={`logo ${light ? 'logo-light' : ''}`} href="/"><img className={`logo-mark-image ${light && logoImage === fallback ? 'logo-mark-image-invert' : ''}`} src={logoImage} alt="" aria-hidden="true" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fallback }} /><span className="logo-copy"><strong>{config['content.brand_name'] || 'UpNorth.org'}</strong><small>{config['content.brand_tagline'] || 'EXPLORE · STAY · DO · BELONG'}</small></span></a> }
 
-function P3Header() { return <header className="site-header"><div className="header-inner"><P3Logo /><nav className="p3-nav"><a href="/things-to-do">Things To Do</a><a href="/stay">Places to Stay</a><a href="/eat-drink">Eat &amp; Drink</a><a href="/events">Events</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/pricing">List Your Business</a></nav><button className="plan-button" type="button" onClick={() => { window.location.href = '/ask' }}>Ask UpNorth</button></div></header> }
+function P3Header({ config }) { return <header className="site-header"><div className="header-inner"><P3Logo config={config} /><nav className="p3-nav"><a href="/things-to-do">Things To Do</a><a href="/stay">Places to Stay</a><a href="/eat-drink">Eat &amp; Drink</a><a href="/events">Events</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/pricing">List Your Business</a></nav><button className="plan-button" type="button" onClick={() => { window.location.href = '/ask' }}>Ask UpNorth</button></div></header> }
 
-function P3Footer() { return <footer className="site-footer"><div className="footer-inner"><P3Logo light /><div className="footer-links"><a href="/about">About</a><a href="/contact">Contact</a><a href="/pricing">List Your Business</a><a href="/events">Submit an Event</a><a href="/ask">Ask UpNorth</a><a href="/">Home</a></div><div className="footer-script">The North<br />Woods Call</div></div></footer> }
+function P3Footer({ config }) { return <footer className="site-footer"><div className="footer-inner"><P3Logo light config={config} /><div className="footer-links"><a href="/about">About</a><a href="/contact">Contact</a><a href="/pricing">List Your Business</a><a href="/events">Submit an Event</a><a href="/ask">Ask UpNorth</a><a href="/">Home</a></div><div className="footer-script">The North<br />Woods Call</div></div></footer> }
 
-function P3Shell({ children }) { return <div className="site-shell p3-shell"><P3Header />{children}<P3Footer /></div> }
+function P3Shell({ children }) { const [config, setConfig] = useState(DEFAULT_SITE_CONFIG); useEffect(() => { let active = true; loadPublicSiteConfig().then((nextConfig) => { if (active) setConfig(nextConfig) }).catch(() => {}); return () => { active = false } }, []); return <div className="site-shell p3-shell"><P3Header config={config} />{children}<P3Footer config={config} /></div> }
 
 function P3ListingCard({ listing }) { return <article className="listing-card p3-listing-card"><a className="listing-image" href={`/listing/${listing.slug}`}><P3SafeImage src={listing.images[0]} alt={listing.name} />{listing.isFeatured && <span className="listing-badge featured">Featured</span>}{!listing.isFeatured && listing.isEnhanced && <span className="listing-badge enhanced">Enhanced</span>}</a><div className="listing-body"><div className="listing-category">{townBySlug[listing.town]?.name} · {listing.subtype}</div><h3><a href={`/listing/${listing.slug}`}>{listing.name}</a></h3><p className="listing-description">{listing.description}</p><div className="listing-bottom"><span className="listing-rating">★ 4.8</span><span className="listing-price">{listing.priceRange}</span></div><div className="listing-tags">{listing.tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div></div></article> }
 

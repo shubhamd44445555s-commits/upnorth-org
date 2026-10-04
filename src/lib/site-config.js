@@ -49,12 +49,16 @@ export const DEFAULT_SITE_CONFIG = Object.freeze({
   'content.home.discovery_4_title': 'Charming Towns',
   'content.home.discovery_4_description': 'Discover unique shops, events and friendly communities.',
   'content.home.discovery_4_action': 'Explore Towns',
-  'images.home.hero': 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2200&q=90',
-  'images.home.life': 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1200&q=88',
-  'images.home.discovery_1': 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1000&q=85',
+  'images.home.hero': '/assets/upnorth-hero-autumn-lake.jpg',
+  'images.home.life': '/assets/upnorth-life-autumn-woods.jpg',
+  'images.home.discovery_1': '/assets/upnorth-outdoors-river.jpg',
   'images.home.discovery_2': 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1000&q=85',
   'images.home.discovery_3': 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1000&q=85',
   'images.home.discovery_4': 'https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?auto=format&fit=crop&w=1000&q=85',
+  'images.brand.logo': '/upnorth-logo-mark.png',
+  'images.brand.logo_dark': '/upnorth-logo-mark.png',
+  'images.brand.logo_light': '/upnorth-logo-mark.png',
+  'images.brand.favicon': '/upnorth-logo-mark.png',
   'design.color_ink': '#152827',
   'design.color_deep': '#0b2b27',
   'design.color_green': '#0f5143',
@@ -110,6 +114,9 @@ export const CMS_CONTENT_FIELDS = Object.freeze([
 ])
 
 export const CMS_IMAGE_FIELDS = Object.freeze([
+  ['images.brand.logo_dark', 'Dark logo image URL (light backgrounds)'],
+  ['images.brand.logo_light', 'Light logo image URL (dark backgrounds)'],
+  ['images.brand.favicon', 'Favicon image URL'],
   ['images.home.hero', 'Homepage hero image URL'],
   ['images.home.life', 'Homepage life section image URL'],
   ['images.home.discovery_1', 'Discovery card 1 image URL'],
@@ -148,13 +155,28 @@ export async function loadPublicSiteConfig() {
   const config = { ...DEFAULT_SITE_CONFIG, ...values }
   for (const key of Object.keys(DEFAULT_SITE_CONFIG).filter((name) => name.startsWith('images.'))) {
     try {
-      const url = new URL(String(config[key] || ''))
-      if (url.protocol !== 'https:' || /[\s"'<>]/.test(String(config[key]))) throw new Error('unsafe image url')
+      const value = String(config[key] || '')
+      if (/[\s"'<>]/.test(value)) throw new Error('unsafe image url')
+      if (value.startsWith('/')) {
+        if (!/^\/(assets\/|upnorth-logo-mark\.png$)/.test(value)) throw new Error('unsafe local image url')
+      } else {
+        const url = new URL(value)
+        if (url.protocol !== 'https:') throw new Error('unsafe image url')
+      }
     } catch {
       config[key] = DEFAULT_SITE_CONFIG[key]
     }
   }
   return config
+}
+
+export function applySiteBranding(config) {
+  if (typeof document === 'undefined') return
+  const favicon = String(config['images.brand.favicon'] || DEFAULT_SITE_CONFIG['images.brand.favicon'])
+  let link = document.head.querySelector('link[data-upnorth-favicon], link[rel="icon"]')
+  if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
+  link.dataset.upnorthFavicon = 'true'
+  link.href = favicon
 }
 
 const safeColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : fallback

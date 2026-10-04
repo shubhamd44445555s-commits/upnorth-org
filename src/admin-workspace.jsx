@@ -25,11 +25,11 @@ import {
 } from './lib/admin-data'
 import { getProfile, isAdminProfile, signOut } from './lib/auth'
 import { supabase } from './lib/supabase'
-import { AiSettingsManager, ArticleManager, BusinessManager, ContactManager, Field, LockedTools, MediaManager, NewsletterManager, NewsletterSendManager, SiteContentManager, SystemManager, TaxonomyManager, TownManager } from './admin-tools'
+import { AiSettingsManager, ArticleManager, BulkImportManager, BusinessManager, ContactManager, Field, LockedTools, MediaManager, NewsletterManager, NewsletterSendManager, SiteContentManager, SystemManager, TaxonomyManager, TownManager } from './admin-tools'
 
 const tabs = [
   ['overview', 'Overview', 'dashboard.read'], ['submissions', 'Submissions', 'submissions.review'], ['claims', 'Claims', 'claims.review'],
-  ['listings', 'Businesses', 'businesses.read'], ['towns', 'Towns', 'towns.manage'], ['events', 'Events', 'events.manage'],
+  ['listings', 'Businesses', 'businesses.read'], ['import', 'Bulk import', 'imports.manage'], ['towns', 'Towns', 'towns.manage'], ['events', 'Events', 'events.manage'],
   ['newsletter', 'Newsletter', 'newsletter.read'], ['contact', 'Messages', 'contact.read'], ['media', 'Media', 'media.manage'],
   ['users', 'Users', 'users.read'], ['audit', 'Audit logs', 'audit.read'], ['history', 'Change history', 'audit.read'], ['security', 'Security', 'security.read'],
   ['system', 'AI & System', 'ai.read'], ['ai-settings', 'AI settings', 'ai.read'], ['content', 'Articles / CMS', 'articles.manage'], ['taxonomy', 'Categories / Places', 'categories.manage'], ['settings', 'Site Content & Design', 'settings.read'], ['locked', 'Billing controls', 'settings.read'],
@@ -160,6 +160,7 @@ export default function AdminWorkspace() {
     if (active === 'submissions') return <ReviewQueue kind="submissions" items={data?.submissions || []} onReview={refresh} />
     if (active === 'claims') return <ReviewQueue kind="claims" items={data?.claims || []} onReview={refresh} />
     if (active === 'listings') return <div className="admin-content"><BusinessManager listings={data?.listings || []} towns={data?.towns || []} canManage={can('businesses.manage')} onRefresh={refresh} /></div>
+    if (active === 'import') return <div className="admin-content"><BulkImportManager canManage={can('imports.manage')} /></div>
     if (active === 'towns') return <div className="admin-content"><TownManager towns={view.towns.length ? view.towns : data?.towns || []} canManage={can('towns.manage')} onRefresh={() => loadTab('towns')} /></div>
     if (active === 'events') return <EventsManager events={data?.events || []} canManage={can('events.manage')} onRefresh={refresh} />
     if (active === 'newsletter') return <div className="admin-content"><NewsletterManager subscribers={view.subscribers} /><NewsletterSendManager canSend={can('newsletter.send')} configured={Boolean(view.system.resendConfigured)} /></div>

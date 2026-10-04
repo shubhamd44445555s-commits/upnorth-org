@@ -7,6 +7,8 @@ import {
   permissionsForRole,
   validateAdminPayload,
 } from '../lib/admin-security.js'
+import { notifySlack } from '../lib/integrations/slack.js'
+import { syncCrmEvent } from '../lib/integrations/crm.js'
 
 const requestBuckets = new Map()
 
@@ -291,9 +293,16 @@ async function deleteTown(client, actor, input, req) {
 }
 
 async function loadMedia(client) {
-  const result = await client.storage.from('listing-images').list('', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } })
-  if (result.error) throw result.error
-  return result.data || []
+  const bucket = client.storage.from('listing-images')
+  const [root, adminFolder] = await Promise.all([
+    bucket.list('', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } }),
+    bucket.list('admin', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } }),
+  ])
+  if (root.error) throw root.error
+  if (adminFolder.error) throw adminFolder.error
+  const rootFiles = (root.data || []).filter((item) => item.id).map((item) => ({ ...item, path: item.name }))
+  const adminFiles = (adminFolder.data || []).filter((item) => item.id).map((item) => ({ ...item, path: `admin/${item.name}` }))
+  return [...rootFiles, ...adminFiles].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
 }
 
 async function loadArticles(client) {
@@ -471,6 +480,8 @@ async function reviewSubmission(client, actor, input, req) {
   }
   await recordAudit(client, actor, `submission_${nextStatus}`, 'business_submission', submission.id, req, { submission_type: submission.submission_type })
   await recordSecurityEvent(client, actor, 'ADMIN_SUBMISSION_REVIEWED', req, { decision: input.decision, submission_id: submission.id })
+  await notifySlack(`listing.${nextStatus}`, { submission_id: submission.id, business_name: submission.business_name, decision: input.decision })
+  await syncCrmEvent(`listing.${nextStatus}`, { submission_id: submission.id, business_name: submission.business_name, town: submission.town })
 }
 
 async function reviewClaim(client, actor, input, req) {
@@ -492,6 +503,8 @@ async function reviewClaim(client, actor, input, req) {
   }
   await recordAudit(client, actor, `claim_${nextStatus}`, 'listing_claim', claim.id, req, { listing_id: claim.listing_id })
   await recordSecurityEvent(client, actor, 'ADMIN_CLAIM_REVIEWED', req, { decision: input.decision, claim_id: claim.id })
+  await notifySlack(`claim.${nextStatus}`, { claim_id: claim.id, listing_id: claim.listing_id, decision: input.decision })
+  await syncCrmEvent(`claim.${nextStatus}`, { claim_id: claim.id, listing_id: claim.listing_id })
 }
 
 async function updateListing(client, actor, input, req) {
@@ -503,6 +516,96 @@ async function updateListing(client, actor, input, req) {
   await recordChangeHistory(client, actor, 'listing_updated', 'listing', input.id, req, before, after)
   await recordAudit(client, actor, 'listing_updated', 'listing', input.id, req, input.changes)
   await recordSecurityEvent(client, actor, 'ADMIN_LISTING_UPDATED', req, { listing_id: input.id, changes: input.changes })
+}
+
+function importList(value, limit = 12) {
+  return String(value || '').split(/[\n,]/).map((item) => item.trim()).filter(Boolean).slice(0, limit)
+}
+
+function importUrl(value) {
+  const text = String(value || '').trim()
+  if (!text) return null
+  if (text.startsWith('/assets/') || text === '/upnorth-logo-mark.png') return text
+  try {
+    const url = new URL(text)
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null
+  } catch { return null }
+}
+
+async function importListings(client, actor, input, req) {
+  const existingResult = await client.from('listings').select('id,slug,name,town').limit(5000)
+  if (existingResult.error) throw existingResult.error
+  const existing = existingResult.data || []
+  const existingKeys = new Set(existing.map((row) => `${String(row.name || '').trim().toLowerCase()}|${String(row.town || '').trim().toLowerCase()}`))
+  const existingSlugs = new Set(existing.map((row) => String(row.slug || '').trim().toLowerCase()))
+  const seenKeys = new Set()
+  const seenSlugs = new Set()
+  const rows = []
+
+  for (const [index, row] of input.rows.entries()) {
+    const name = String(row.name || '').trim()
+    const town = String(row.town || '').trim().toLowerCase()
+    const category = String(row.category || '').trim().toLowerCase()
+    const slug = slugify(row.slug || name)
+    const issues = []
+    if (!name) issues.push('Missing name')
+    if (!town) issues.push('Missing town')
+    if (!['stay', 'eat-drink', 'things-to-do', 'real-estate'].includes(category)) issues.push('Invalid or missing category')
+    if (!String(row.description || '').trim()) issues.push('Missing description')
+    const key = `${name.toLowerCase()}|${town}`
+    const duplicate = (slug && (existingSlugs.has(slug) || seenSlugs.has(slug))) || (name && town && (existingKeys.has(key) || seenKeys.has(key)))
+    if (duplicate) {
+      rows.push({ row: index + 1, status: 'duplicate', name: name || '(unnamed)', issues: ['Possible duplicate slug or name/town match'] })
+      continue
+    }
+    const images = importList(row.images, 8)
+    const validImages = images.map(importUrl).filter(Boolean)
+    if (images.length !== validImages.length) issues.push('One or more image URLs were rejected')
+    const website = importUrl(row.website)
+    if (row.website && !website) issues.push('Website URL needs review')
+    const phone = String(row.phone || '').trim() || null
+    if (phone && !/[0-9]{7,}/.test(phone.replace(/\D/g, ''))) issues.push('Phone number needs review')
+    const record = {
+      id: cleanId(String(row.id || `import-${actor.id.slice(0, 8)}-${Date.now()}-${index}`).slice(0, 150)),
+      slug: slug || `imported-listing-${Date.now()}-${index}`,
+      name,
+      category,
+      subtype: String(row.subtype || 'other').trim().slice(0, 80) || 'other',
+      town,
+      price_range: String(row.price_range || '').trim().slice(0, 20) || null,
+      tags: importList(row.tags),
+      description: String(row.description || '').trim().slice(0, 2000) || 'Imported record requires editorial review before publishing.',
+      images: validImages,
+      is_featured: false,
+      is_enhanced: false,
+      phone,
+      website,
+      address: String(row.address || '').trim().slice(0, 300) || null,
+      status: 'draft',
+    }
+    if (!name || !town || !['stay', 'eat-drink', 'things-to-do', 'real-estate'].includes(category)) {
+      rows.push({ row: index + 1, status: 'needs-review', name: name || '(unnamed)', issues })
+      continue
+    }
+    try {
+      await createListing(client, actor, record, req)
+      existingKeys.add(key); existingSlugs.add(record.slug); seenKeys.add(key); seenSlugs.add(record.slug)
+      rows.push({ row: index + 1, status: 'imported', name: record.name, id: record.id, issues })
+    } catch (error) {
+      rows.push({ row: index + 1, status: 'error', name: record.name, issues: [...issues, 'Database could not save this row'] })
+    }
+  }
+  const summary = {
+    imported: rows.filter((row) => row.status === 'imported').length,
+    duplicates: rows.filter((row) => row.status === 'duplicate').length,
+    needsReview: rows.filter((row) => row.status === 'needs-review').length,
+    errors: rows.filter((row) => row.status === 'error').length,
+  }
+  await recordAudit(client, actor, 'listings_imported', 'listing_import', `batch-${Date.now()}`, req, { ...summary, draft_only: true })
+  await recordSecurityEvent(client, actor, 'ADMIN_LISTING_IMPORT', req, { ...summary, draft_only: true })
+  await notifySlack(summary.errors || summary.needsReview ? 'import.error' : 'import.completed', summary)
+  await syncCrmEvent('listing_import.completed', summary)
+  return { ...summary, rows }
 }
 
 async function updateEvent(client, actor, input, req) {
@@ -601,10 +704,17 @@ export default async function handler(req, res) {
         resendConfigured: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
         supabaseServiceRoleConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
         mapsConfigured: Boolean(process.env.VITE_GOOGLE_MAPS_API_KEY),
+        slackConfigured: Boolean(process.env.SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_LEADS || process.env.SLACK_WEBHOOK_CONTENT || process.env.SLACK_WEBHOOK_SECURITY),
+        crmConfigured: Boolean(process.env.CRM_WEBHOOK_URL),
+        crmProvider: process.env.CRM_PROVIDER || null,
         stripeConfigured: false,
       } })
     }
     if (action === 'media_list') return response(res, 200, { ok: true, media: await loadMedia(client) })
+    if (action === 'import_listings') {
+      const result = await importListings(client, profile, input, req)
+      return response(res, 200, { ok: true, ...result })
+    }
     if (action === 'towns') return response(res, 200, { ok: true, towns: await loadTowns(client) })
     if (action === 'review_submission') await reviewSubmission(client, profile, input, req)
     if (action === 'review_claim') await reviewClaim(client, profile, input, req)

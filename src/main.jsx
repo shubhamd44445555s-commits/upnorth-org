@@ -5,7 +5,7 @@ import { events as fallbackEvents } from './data/events'
 import { listings as fallbackListings, listingBySlug as fallbackListingBySlug } from './data/listings'
 import { townBySlug as fallbackTownBySlug, towns as fallbackTowns } from './data/towns'
 import { loadPublishedContent, submitContactMessage } from './lib/content-data'
-import { applySiteTheme, DEFAULT_SITE_CONFIG, loadPublicSiteConfig } from './lib/site-config'
+import { applySiteBranding, applySiteTheme, DEFAULT_SITE_CONFIG, loadPublicSiteConfig } from './lib/site-config'
 import { NorthwoodsMap } from './NorthwoodsMap'
 import './styles.css'
 
@@ -55,7 +55,7 @@ const navGroups = {
   'Real Estate': { href: '/real-estate', items: ['Lake Homes', 'Cabins for Sale', 'Land & Lots', 'Property Search', 'Local Experts'] },
 }
 const categoryHeaders = {
-  stay: { title: 'Places to Stay', description: 'Cabins, resorts, campgrounds, and rooms made for longer mornings.', image: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=2200&q=88' },
+  stay: { title: 'Places to Stay', description: 'Cabins, resorts, vacation rentals, campgrounds, and rooms made for longer mornings.', image: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=2200&q=88' },
   'eat-drink': { title: 'Eat & Drink', description: 'Supper clubs, lake bars, breweries, and the local flavors worth the drive.', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=2200&q=88' },
   'things-to-do': { title: 'Things To Do', description: 'Get on the water, hit the trail, and find your next Northwoods story.', image: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=2200&q=88' },
   events: { title: 'Events', description: 'Live music, festivals, markets, and good reasons to make a weekend of it.', image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=2200&q=88' },
@@ -64,7 +64,7 @@ const categoryHeaders = {
 }
 const categoryLabels = { stay: 'Places to Stay', 'eat-drink': 'Eat & Drink', 'things-to-do': 'Things To Do', events: 'Events', explore: 'Explore', 'real-estate': 'Real Estate' }
 const filterOptions = {
-  stay: [['all', 'All stays'], ['cabin', 'Cabins'], ['resort', 'Resorts'], ['hotel', 'Hotels'], ['B&B', 'B&Bs'], ['campground', 'Campgrounds']],
+  stay: [['all', 'All stays'], ['cabin', 'Cabins'], ['vacation-rental', 'Vacation rentals'], ['resort', 'Resorts'], ['hotel', 'Hotels'], ['B&B', 'B&Bs'], ['campground', 'Campgrounds']],
   'eat-drink': [['all', 'All food & drink'], ['restaurant', 'Restaurants'], ['supper club', 'Supper clubs'], ['bar', 'Bars'], ['brewery', 'Breweries'], ['coffee', 'Coffee shops']],
   'things-to-do': [['all', 'All activities'], ['fishing', 'Fishing'], ['boating', 'Boating'], ['ATV-UTV', 'ATV / UTV'], ['snowmobiling', 'Snowmobiling'], ['hiking', 'Hiking'], ['golf', 'Golf']],
   events: [['all', 'All events'], ['this-week', 'This week'], ['this-month', 'This month'], ['festival', 'Festivals']],
@@ -98,7 +98,9 @@ function SafeImage({ src, alt = '', ...props }) {
 }
 
 function Logo({ light = false, onNavigate }) {
-  return <a className={`logo ${light ? 'logo-light' : ''}`} href="/" onClick={(event) => onNavigate?.(event, '/')} aria-label={`${siteValue('content.brand_name', 'UpNorth.org')} home`}><img className="logo-mark-image" src="/upnorth-logo-mark.png" alt="" aria-hidden="true" /><span className="logo-copy"><strong>{siteValue('content.brand_name', 'UpNorth.org')}</strong><small>{siteValue('content.brand_tagline', 'EXPLORE · STAY · DO · BELONG')}</small></span></a>
+  const fallback = '/upnorth-logo-mark.png'
+  const logoImage = siteValue(light ? 'images.brand.logo_light' : 'images.brand.logo_dark', siteValue('images.brand.logo', fallback))
+  return <a className={`logo ${light ? 'logo-light' : ''}`} href="/" onClick={(event) => onNavigate?.(event, '/')} aria-label={`${siteValue('content.brand_name', 'UpNorth.org')} home`}><img className={`logo-mark-image ${light && logoImage === fallback ? 'logo-mark-image-invert' : ''}`} src={logoImage} alt="" aria-hidden="true" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fallback }} /><span className="logo-copy"><strong>{siteValue('content.brand_name', 'UpNorth.org')}</strong><small>{siteValue('content.brand_tagline', 'EXPLORE · STAY · DO · BELONG')}</small></span></a>
 }
 
 function SiteHeader({ onNavigate }) {
@@ -275,6 +277,7 @@ function App() {
       if (!active) return
       siteConfig = config
       applySiteTheme(config)
+      applySiteBranding(config)
       setContentVersion((version) => version + 1)
     }).catch((error) => console.warn('Public CMS settings unavailable; using the existing design.', error.message))
     loadPublishedContent().then((content) => {

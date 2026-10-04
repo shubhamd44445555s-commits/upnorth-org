@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   createArticle, createCategory, createListing, createTown,
   deleteArticle, deleteCategory, deleteListing, deleteMedia, deleteTown,
+  importListings,
   sendNewsletter, updateAiSettings, updateArticle, updateCategory,
   updateFeatureFlag, updatePublicSiteSettings, updateSiteSettings, updateListingFlags, updateTown,
 } from './lib/admin-data'
@@ -18,7 +19,83 @@ function ToolHeader({ eyebrow, title, description, action }) { return <div class
 function ToolEmpty({ children }) { return <div className="admin-tool-empty">{children}</div> }
 function ErrorBox({ error }) { return error ? <div className="admin-alert admin-alert-error">{error}</div> : null }
 const parseList = (value) => String(value || '').split(/\n|,/).map((item) => item.trim()).filter(Boolean)
+async function hasValidLogoSignature(file) {
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+  const startsWith = (signature) => signature.every((value, index) => bytes[index] === value)
+  const isPng = startsWith([137, 80, 78, 71, 13, 10, 26, 10])
+  const isJpeg = startsWith([255, 216, 255])
+  const isWebp = startsWith([82, 73, 70, 70]) && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80
+  return isPng || isJpeg || isWebp
+}
+
+async function prepareLogoFile(file) {
+  if (file.type !== 'image/svg+xml') {
+    if (!(await hasValidLogoSignature(file))) throw new Error('The selected logo is not a valid PNG, JPG, or WebP file.')
+    return file
+  }
+  if (file.size > 2 * 1024 * 1024) throw new Error('Choose an SVG logo smaller than 2 MB.')
+  const source = await file.text()
+  const unsafeSvg = /<!doctype|<!entity|<script\b|<foreignObject\b|<iframe\b|<object\b|<embed\b|on[a-z]+\s*=|javascript:|data:text\/html|(?:href|xlink:href)\s*=\s*["']https?:/i
+  if (!/^\s*<svg\b[\s\S]*<\/svg>\s*$/i.test(source) || unsafeSvg.test(source)) throw new Error('This SVG contains unsupported or unsafe content.')
+  const sanitized = source.replace(/<!--[\s\S]*?-->/g, '').replace(/<\?xml[\s\S]*?\?>/g, '').replace(/<style[\s\S]*?<\/style>/gi, '')
+  return new File([sanitized], file.name, { type: 'image/svg+xml' })
+}
 function listingForm(listing) { return { id: listing.id, slug: listing.slug, name: listing.name, category: listing.category, subtype: listing.subtype, town: listing.town, price_range: listing.price_range || listing.priceRange || '$$', tags: (listing.tags || []).join(', '), description: listing.description || '', images: (listing.images || []).join('\n'), is_featured: Boolean(listing.is_featured ?? listing.isFeatured), is_enhanced: Boolean(listing.is_enhanced ?? listing.isEnhanced), phone: listing.phone || '', website: listing.website || '', address: listing.address || '', status: listing.status || 'draft' } }
+
+function parseCsvText(text) {
+  const matrix = []
+  let row = []; let value = ''; let quoted = false
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index]
+    if (quoted) {
+      if (character === '"' && text[index + 1] === '"') { value += '"'; index += 1 }
+      else if (character === '"') quoted = false
+      else value += character
+    } else if (character === '"' && value === '') quoted = true
+    else if (character === ',') { row.push(value.trim()); value = '' }
+    else if (character === '\n' || character === '\r') {
+      if (character === '\r' && text[index + 1] === '\n') index += 1
+      row.push(value.trim()); value = ''
+      if (row.some((cell) => cell)) matrix.push(row)
+      row = []
+    } else value += character
+  }
+  row.push(value.trim())
+  if (row.some((cell) => cell)) matrix.push(row)
+  const headers = (matrix.shift() || []).map((header) => {
+    const normalized = header.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+    return ({ business_name: 'name', town_name: 'town', type: 'subtype', price: 'price_range', image: 'images', image_urls: 'images' })[normalized] || normalized
+  })
+  return matrix.map((cells) => Object.fromEntries(headers.map((header, index) => [header, cells[index] || ''])))
+}
+
+export function BulkImportManager({ canManage = false }) {
+  const [rows, setRows] = useState([])
+  const [fileName, setFileName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState(null)
+  const readFile = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setError(''); setResult(null); setFileName(file.name)
+    if (!/\.(csv|txt)$/i.test(file.name)) { setRows([]); setError('For now, export the Excel sheet as CSV and upload that file. The importer is intentionally dependency-free and does not execute spreadsheet formulas.'); return }
+    try {
+      const parsed = parseCsvText(await file.text())
+      if (!parsed.length) throw new Error('No rows were found. Add a header row and at least one listing.')
+      setRows(parsed.slice(0, 200))
+      if (parsed.length > 200) setError('Only the first 200 rows are loaded in one review session. Split larger files into smaller CSVs.')
+    } catch (parseError) { setRows([]); setError(parseError.message || 'Could not read this CSV file.') }
+    event.target.value = ''
+  }
+  const startImport = async () => {
+    if (!canManage || !rows.length) return
+    if (!window.confirm(`Import ${rows.length} listing rows as drafts? Existing records will not be overwritten.`)) return
+    setBusy(true); setError(''); setResult(null)
+    try { setResult(await importListings(rows)) } catch (importError) { setError(importError.message || 'The import could not be completed.') } finally { setBusy(false) }
+  }
+  return <section className="admin-tool-panel"><ToolHeader eyebrow="Data operations" title="Bulk listing import" description="Upload a CSV, review the preview, then import records as drafts. Duplicates and questionable fields are flagged instead of overwriting existing records." action={canManage && <label className="admin-button admin-button-approve admin-upload-button">{fileName ? 'Choose another CSV' : '+ Choose CSV'}<input type="file" accept=".csv,text/csv,.txt" onChange={readFile} disabled={busy} /></label>} /><div className="admin-tool-note"><strong>Expected headers:</strong> name, category, subtype, town, description, slug, price_range, tags, images, phone, website, address. Excel is supported safely by exporting the sheet to CSV first; formulas and macros are never executed.</div><ErrorBox error={error} />{rows.length > 0 && <><div className="admin-import-summary"><span>{fileName}</span><strong>{rows.length} rows ready for review</strong><button className="admin-button admin-button-approve" type="button" onClick={startImport} disabled={busy}>{busy ? 'Importing…' : 'Import as drafts'}</button></div><div className="admin-tool-table admin-import-preview">{rows.slice(0, 8).map((row, index) => <article className="admin-tool-row" key={`${row.slug || row.name || 'row'}-${index}`}><div><strong>{row.name || '(missing name)'}</strong><span>{row.category || '(missing category)'} · {row.town || '(missing town)'}</span></div><small>{row.description ? 'Description supplied' : 'Needs description review'} · {row.images ? 'Images supplied' : 'No images'}</small></article>)}{rows.length > 8 && <ToolEmpty>Preview shows the first 8 rows. All loaded rows will be checked.</ToolEmpty>}</div></>}{result && <div className="admin-import-result"><strong>Import complete — {result.imported} draft(s) created.</strong><span>{result.duplicates} duplicate(s) skipped · {result.needsReview} row(s) need review · {result.errors} save error(s).</span>{result.rows?.filter((row) => row.status !== 'imported').map((row) => <small key={`${row.row}-${row.status}-${row.name}`}>Row {row.row}: {row.status} — {(row.issues || []).join(', ')}</small>)}</div>}{!rows.length && !error && <ToolEmpty>Choose a CSV to begin. Nothing is written until you confirm the draft import.</ToolEmpty>}</section>
+}
 
 export function BusinessManager({ listings = [], towns = [], onRefresh, canManage = false }) {
   const [form, setForm] = useState(emptyListing); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [filter, setFilter] = useState('all')
@@ -43,9 +120,47 @@ export function NewsletterSendManager({ canSend = false, configured = false }) {
 
 export function ContactManager({ messages = [] }) { return <section className="admin-tool-panel"><ToolHeader eyebrow="Inbox" title="Contact messages" description="Read messages submitted through the public contact form." /><div className="admin-record-grid">{messages.length ? messages.map((message) => <article className="admin-record-card" key={message.id}><div className="admin-record-head"><div><span className="admin-kicker">{message.topic}</span><h3>{message.name}</h3></div><span className="admin-status">{message.town || 'Northwoods'}</span></div><p className="admin-record-description">{message.message}</p><div className="admin-record-meta"><a href={`mailto:${message.email}`}>{message.email}</a> · {new Date(message.created_at).toLocaleString()}</div></article>) : <ToolEmpty>No contact messages yet.</ToolEmpty>}</div></section> }
 
-export function MediaManager({ media = [], onRefresh, canManage = false, canAssignSiteContent = false }) { const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [assigned, setAssigned] = useState({}); const upload = async (event) => { const file = event.target.files?.[0]; if (!file || !supabase) return; if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) { setError('Choose an image smaller than 5 MB.'); return }; setBusy(true); setError(''); try { const safeName = file.name.toLowerCase().replace(/[^a-z0-9.-]/g, '-'); const path = `admin/${Date.now()}-${safeName}`; const result = await supabase.storage.from('listing-images').upload(path, file, { contentType: file.type, upsert: false }); if (result.error) throw result.error; await onRefresh() } catch (uploadError) { setError(uploadError.message || 'Upload failed. Ensure the listing-images bucket exists.') } finally { setBusy(false); event.target.value = '' } }; const remove = async (item) => { if (!window.confirm(`Delete ${item.name || item.id}?`)) return; setBusy(true); setError(''); try { await deleteMedia(item.name); await onRefresh() } catch (deleteError) { setError(deleteError.message || 'Could not delete the image.') } finally { setBusy(false) } }; const assign = async (item, key) => { if (!key || !supabase || !canAssignSiteContent) return; const url = supabase.storage.from('listing-images').getPublicUrl(item.name).data.publicUrl; setBusy(true); setError(''); try { await updatePublicSiteSettings({ [key]: url }); setAssigned((current) => ({ ...current, [item.name]: key })); } catch (assignError) { setError(assignError.message || 'Could not assign the image.') } finally { setBusy(false) } }; return <section className="admin-tool-panel"><ToolHeader eyebrow="Approved assets" title="Media library" description="Images are stored in the listing-images bucket. Uploads can be assigned to approved homepage image slots." action={canManage && <label className="admin-button admin-button-approve admin-upload-button">{busy ? 'Uploading…' : '+ Upload image'}<input type="file" accept="image/*" onChange={upload} disabled={busy} /></label>} /><ErrorBox error={error} />{canAssignSiteContent && <div className="admin-tool-note">After upload, choose a homepage slot on an image card. Assignments use the image’s public Storage URL and are protected by the Site Content permission.</div>}{!canAssignSiteContent && <div className="admin-tool-note">Homepage slot assignment requires the separate site_content.update permission.</div>}<div className="admin-media-grid">{media.length ? media.map((item) => { const url = supabase?.storage.from('listing-images').getPublicUrl(item.name).data.publicUrl; return <article className="admin-media-card" key={item.id || item.name}><img src={url} alt={item.name} /><div><strong>{item.name}</strong><div className="admin-media-actions">{canAssignSiteContent && <select className="admin-role-select" value={assigned[item.name] || ''} onChange={(event) => assign(item, event.target.value)} disabled={busy}><option value="">Assign to homepage…</option>{CMS_IMAGE_FIELDS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select>}{canManage && <button className="admin-button admin-button-reject" type="button" onClick={() => remove(item)} disabled={busy}>Delete</button>}</div>{assigned[item.name] && <small>Assigned to {CMS_IMAGE_FIELDS.find(([key]) => key === assigned[item.name])?.[1]}</small>}</div></article> }) : <ToolEmpty>No media files found. Upload an image to begin.</ToolEmpty>}</div></section> }
+export function MediaManager({ media = [], onRefresh, canManage = false, canAssignSiteContent = false }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [assigned, setAssigned] = useState({})
+  const mediaPath = (item) => item.path || item.name
+  const upload = async (event) => {
+    const file = event.target.files?.[0]
+    const slot = event.currentTarget.dataset.slot || ''
+    const input = event.currentTarget
+    if (!file || !supabase) return
+    const isLogo = slot.startsWith('images.brand.')
+    const allowedLogoTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+    if (!file.type.startsWith('image/') || (isLogo && !allowedLogoTypes.includes(file.type))) { setError(isLogo ? 'Brand assets must be PNG, JPG, WebP, or SVG files.' : 'Choose a supported image file.'); return }
+    if (file.size > (isLogo ? 2 : 5) * 1024 * 1024) { setError(isLogo ? 'Choose a brand logo smaller than 2 MB.' : 'Choose an image smaller than 5 MB.'); return }
+    let fileToUpload = file
+    if (isLogo) {
+      try { fileToUpload = await prepareLogoFile(file) } catch (validationError) { setError(validationError.message); return }
+    }
+    setBusy(true); setError(''); setMessage('')
+    try {
+      const safeName = file.name.toLowerCase().replace(/[^a-z0-9.-]/g, '-')
+      const path = `admin/${Date.now()}-${safeName}`
+      const result = await supabase.storage.from('listing-images').upload(path, fileToUpload, { contentType: fileToUpload.type, upsert: false })
+      if (result.error) throw result.error
+      if (slot && canAssignSiteContent) {
+        const url = supabase.storage.from('listing-images').getPublicUrl(path).data.publicUrl
+        await updatePublicSiteSettings({ [slot]: url })
+        setAssigned((current) => ({ ...current, [path]: slot }))
+        setMessage('Brand logo uploaded and published safely. The bundled logo remains the fallback.')
+      } else setMessage('Image uploaded to the approved media library.')
+      await onRefresh()
+    } catch (uploadError) { setError(uploadError.message || 'Upload failed. Ensure the listing-images bucket exists.') } finally { setBusy(false); input.value = '' }
+  }
+  const remove = async (item) => { const path = mediaPath(item); if (!window.confirm(`Delete ${item.name || path}?`)) return; setBusy(true); setError(''); setMessage(''); try { await deleteMedia(path); await onRefresh() } catch (deleteError) { setError(deleteError.message || 'Could not delete the image.') } finally { setBusy(false) } }
+  const assign = async (item, key) => { const path = mediaPath(item); if (!key || !supabase || !canAssignSiteContent) return; const url = supabase.storage.from('listing-images').getPublicUrl(path).data.publicUrl; setBusy(true); setError(''); setMessage(''); try { await updatePublicSiteSettings({ [key]: url }); setAssigned((current) => ({ ...current, [path]: key })); setMessage(`${CMS_IMAGE_FIELDS.find(([field]) => field === key)?.[1] || 'Site image'} updated successfully.`) } catch (assignError) { setError(assignError.message || 'Could not assign the image.') } finally { setBusy(false) } }
+  const logoSlots = [['images.brand.logo_dark', 'Upload dark logo'], ['images.brand.logo_light', 'Upload light logo'], ['images.brand.favicon', 'Upload favicon']]
+  return <section className="admin-tool-panel"><ToolHeader eyebrow="Approved assets" title="Media library" description="Upload approved images and safely assign them to public site slots, including light/dark logos and the favicon." action={canManage && <div className="admin-tool-actions">{canAssignSiteContent && logoSlots.map(([slot, label]) => <label className="admin-button admin-button-approve admin-upload-button" key={slot}>{busy ? 'Uploading…' : `+ ${label}`}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-slot={slot} onChange={upload} disabled={busy} /></label>)}<label className="admin-button admin-upload-button">{busy ? 'Uploading…' : '+ Upload image'}<input type="file" accept="image/*" onChange={upload} disabled={busy} /></label></div>} /><ErrorBox error={error} />{message && <div className="admin-alert admin-alert-success">{message}</div>}{canAssignSiteContent && <div className="admin-tool-note">Brand assets support PNG, JPG, WebP, and sanitized SVG up to 2 MB. Assignments are permission-checked, stored in the approved media bucket, validated server-side, and recorded in change history.</div>}{!canAssignSiteContent && <div className="admin-tool-note">Logo assignment requires the separate site_content.update permission.</div>}<div className="admin-media-grid">{media.length ? media.map((item) => { const path = mediaPath(item); const url = supabase?.storage.from('listing-images').getPublicUrl(path).data.publicUrl; return <article className="admin-media-card" key={path}><img src={url} alt={item.name || path} /><div><strong>{item.name || path}</strong><div className="admin-media-actions">{canAssignSiteContent && <select className="admin-role-select" value={assigned[path] || ''} onChange={(event) => assign(item, event.target.value)} disabled={busy}><option value="">Assign to site slot…</option>{CMS_IMAGE_FIELDS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select>}{canManage && <button className="admin-button admin-button-reject" type="button" onClick={() => remove(item)} disabled={busy}>Delete</button>}</div>{assigned[path] && <small>Assigned to {CMS_IMAGE_FIELDS.find(([key]) => key === assigned[path])?.[1]}</small>}</div></article> }) : <ToolEmpty>No media files found. Upload an image to begin.</ToolEmpty>}</div></section>
+}
 
-export function SystemManager({ status = {} }) { const checks = [['Supabase', status.supabaseConfigured, 'Database/Auth connection'], ['Groq AI', status.groqConfigured, status.groqModel || 'Provider key configured'], ['Resend', status.resendConfigured, 'Transactional email provider'], ['Google Maps', status.mapsConfigured, 'Map API key'], ['Stripe', false, 'Locked until client approval']]; return <section className="admin-tool-panel"><ToolHeader eyebrow="System health" title="AI & integrations" description="Provider status only. Secret keys are never displayed or stored in ordinary admin fields." /><div className="admin-system-grid">{checks.map(([name, ready, detail]) => <article className="admin-system-card" key={name}><span className={`admin-system-dot ${ready ? 'is-ready' : ''}`}></span><div><strong>{name}</strong><p>{ready ? 'Configured' : 'Not configured'}</p><small>{detail}</small></div></article>)}</div></section> }
+export function SystemManager({ status = {} }) { const checks = [['Supabase', status.supabaseConfigured, 'Database/Auth connection'], ['Groq AI', status.groqConfigured, status.groqModel || 'Provider key configured'], ['Resend', status.resendConfigured, 'Transactional email provider'], ['Google Maps', status.mapsConfigured, 'Map API key'], ['Slack', status.slackConfigured, 'Server-side channel webhooks'], ['CRM bridge', status.crmConfigured, status.crmProvider || 'Provider-neutral webhook'], ['Stripe', false, 'Locked until client approval']]; return <section className="admin-tool-panel"><ToolHeader eyebrow="System health" title="AI & integrations" description="Provider status only. Secret keys are never displayed or stored in ordinary admin fields." /><div className="admin-system-grid">{checks.map(([name, ready, detail]) => <article className="admin-system-card" key={name}><span className={`admin-system-dot ${ready ? 'is-ready' : ''}`}></span><div><strong>{name}</strong><p>{ready ? 'Configured' : 'Not configured'}</p><small>{detail}</small></div></article>)}</div></section> }
 
 export function ArticleManager({ articles = [], onRefresh, canManage = false }) { const [form, setForm] = useState(emptyArticle); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const edit = (key, value) => setForm((current) => ({ ...current, [key]: value })); const isEdit = articles.some((item) => item.id === form.id); const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { if (isEdit) await updateArticle(form.id, form); else await createArticle({ ...form, id: form.id || `article-${Date.now()}` }); setOpen(false); await onRefresh() } catch (saveError) { setError(saveError.message || 'Could not save the article.') } finally { setBusy(false) } }; const remove = async (article) => { if (!window.confirm(`Delete ${article.title}?`)) return; setBusy(true); try { await deleteArticle(article.id); await onRefresh() } catch (deleteError) { setError(deleteError.message || 'Could not delete the article.') } finally { setBusy(false) } }; return <section className="admin-tool-panel"><ToolHeader eyebrow="Editorial CMS" title="Articles & guides" description="Write safe plain-text editorial content with draft/published workflow. Every save is recorded in Change history." action={canManage && <button className="admin-button admin-button-approve" type="button" onClick={() => { setForm({ ...emptyArticle, id: `article-${Date.now()}` }); setOpen(true) }}>+ New article</button>} /><ErrorBox error={error} />{open && canManage && <form className="admin-tool-form" onSubmit={submit}><div className="admin-tool-form-heading"><strong>{isEdit ? 'Edit article' : 'Create article'}</strong><button className="admin-tool-close" type="button" onClick={() => setOpen(false)}>Close</button></div><div className="admin-tool-grid"><Field label="Title" wide><input required value={form.title} onChange={(event) => edit('title', event.target.value)} /></Field><Field label="Slug"><input required value={form.slug} onChange={(event) => edit('slug', event.target.value)} /></Field><Field label="Status"><select value={form.status} onChange={(event) => edit('status', event.target.value)}><option value="draft">Draft</option><option value="published">Published</option></select></Field><Field label="Hero image URL" wide><input type="url" value={form.hero_image} onChange={(event) => edit('hero_image', event.target.value)} /></Field><Field label="Excerpt" wide><textarea rows="3" value={form.excerpt} onChange={(event) => edit('excerpt', event.target.value)} /></Field><Field label="Body" wide><textarea required rows="10" value={form.body} onChange={(event) => edit('body', event.target.value)} /></Field><Field label="SEO title"><input value={form.seo_title} onChange={(event) => edit('seo_title', event.target.value)} /></Field><Field label="SEO description"><input value={form.seo_description} onChange={(event) => edit('seo_description', event.target.value)} /></Field></div><div className="admin-tool-form-actions"><button className="admin-button" type="button" onClick={() => setOpen(false)}>Cancel</button><button className="admin-button admin-button-approve" disabled={busy}>{busy ? 'Saving…' : 'Save article'}</button></div></form>}<div className="admin-tool-table">{articles.length ? articles.map((article) => <article className="admin-tool-row" key={article.id}><div><strong>{article.title}</strong><span>/{article.slug} · {article.status}</span></div><div className="admin-row-actions"><button className="admin-button" type="button" onClick={() => { setForm({ ...emptyArticle, ...article }); setOpen(true) }}>Edit</button>{canManage && <button className="admin-button admin-button-reject" type="button" onClick={() => remove(article)}>Delete</button>}</div></article>) : <ToolEmpty>No articles found.</ToolEmpty>}</div></section> }
 
@@ -98,7 +213,7 @@ export function SiteContentManager({ settings = [], flags = [], canUpdate = fals
     {!canUpdate && <div className="admin-tool-note">You can preview these controls, but a role with settings.update permission is required to publish changes.</div>}
     <ErrorBox error={error} />
     <div className="admin-cms-group"><div className="admin-subheading-row"><h3 className="admin-subheading">Content</h3><span>Plain text only</span></div><div className="admin-tool-grid">{CMS_CONTENT_FIELDS.map(([key, label]) => <Field label={label} wide={key.includes('description') || key.includes('body') || key.includes('tagline')} key={key}>{key.includes('description') || key.includes('body') || key.includes('tagline') ? <textarea rows={key.includes('tagline') ? 2 : 3} disabled={!canUpdate} value={String(site[key] ?? '')} onChange={(event) => setValue(key, event.target.value)} /> : <input disabled={!canUpdate} value={String(site[key] ?? '')} onChange={(event) => setValue(key, event.target.value)} />}</Field>)}</div></div>
-    <div className="admin-cms-group"><div className="admin-subheading-row"><h3 className="admin-subheading">Image assignments</h3><span>HTTPS URLs only</span></div><div className="admin-tool-grid">{CMS_IMAGE_FIELDS.map(([key, label]) => <Field label={label} wide key={key}><input type="url" disabled={!canUpdate} value={String(site[key] ?? '')} onChange={(event) => setValue(key, event.target.value)} /></Field>)}</div></div>
+    <div className="admin-cms-group"><div className="admin-subheading-row"><h3 className="admin-subheading">Image assignments</h3><span>Approved local paths or HTTPS URLs</span></div><div className="admin-tool-grid">{CMS_IMAGE_FIELDS.map(([key, label]) => <Field label={label} wide key={key}><input type="url" disabled={!canUpdate} value={String(site[key] ?? '')} onChange={(event) => setValue(key, event.target.value)} /></Field>)}</div></div>
     <div className="admin-cms-group"><div className="admin-subheading-row"><h3 className="admin-subheading">Design tokens</h3><span>Allowlisted theme controls</span></div><div className="admin-tool-grid">{CMS_DESIGN_FIELDS.map(([key, label, type]) => <Field label={label} key={key}>{type === 'color' ? <input type="color" disabled={!canUpdate} value={String(site[key] || DEFAULT_SITE_CONFIG[key])} onChange={(event) => setValue(key, event.target.value)} /> : type === 'font' ? <select disabled={!canUpdate} value={String(site[key] || DEFAULT_SITE_CONFIG[key])} onChange={(event) => setValue(key, event.target.value)}><option value="serif">Serif</option><option value="sans">Sans</option><option value="system">System</option></select> : <input type="number" step="0.1" min={key.endsWith('radius') ? 0 : 0.8} max={key.endsWith('radius') ? 24 : 1.4} disabled={!canUpdate} value={Number(site[key] ?? DEFAULT_SITE_CONFIG[key])} onChange={(event) => setValue(key, Number(event.target.value))} />}</Field>)}</div></div>
     <div className="admin-cms-group"><div className="admin-subheading-row"><h3 className="admin-subheading">Homepage sections</h3><span>Toggle and reorder known sections</span></div><div className="admin-tool-table">{sections.map((key, index) => <article className="admin-tool-row" key={key}><div><strong>{HOME_SECTION_OPTIONS.find(([option]) => option === key)?.[1] || key}</strong><span>Position {index + 1}</span></div><div className="admin-row-actions"><button className="admin-button" type="button" disabled={!canUpdate || index === 0} onClick={() => moveSection(index, -1)}>↑</button><button className="admin-button" type="button" disabled={!canUpdate || index === sections.length - 1} onClick={() => moveSection(index, 1)}>↓</button><button className="admin-button admin-button-reject" type="button" disabled={!canUpdate} onClick={() => toggleSection(key)}>Hide</button></div></article>)}{HOME_SECTION_OPTIONS.filter(([key]) => !sections.includes(key)).map(([key, label]) => <article className="admin-tool-row" key={key}><div><strong>{label}</strong><span>Hidden from homepage</span></div><button className="admin-button" type="button" disabled={!canUpdate} onClick={() => toggleSection(key)}>Show</button></article>)}</div></div>
     {canUpdate && <button className="admin-button admin-button-approve" type="button" disabled={busy} onClick={save}>{busy ? 'Publishing…' : 'Save & publish site changes'}</button>}

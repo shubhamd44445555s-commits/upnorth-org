@@ -49,6 +49,21 @@ export async function createListing(payload) {
   await adminRequest('create_listing', payload)
 }
 
+export async function importListings(rows) {
+  const batches = []
+  for (let index = 0; index < rows.length; index += 8) batches.push(rows.slice(index, index + 8))
+  const combined = { imported: 0, duplicates: 0, needsReview: 0, errors: 0, rows: [] }
+  for (const batch of batches) {
+    const result = await adminRequest('import_listings', { rows: batch })
+    combined.imported += result.imported || 0
+    combined.duplicates += result.duplicates || 0
+    combined.needsReview += result.needsReview || 0
+    combined.errors += result.errors || 0
+    combined.rows.push(...(result.rows || []))
+  }
+  return combined
+}
+
 export async function deleteListing(id) {
   await adminRequest('delete_listing', { id })
 }

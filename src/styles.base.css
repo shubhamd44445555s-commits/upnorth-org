@@ -96,7 +96,7 @@ button { border: 0; cursor: pointer; }
 .footer-inner { min-height: 82px; display: flex; align-items: center; gap: 42px; }
 .logo-light .logo-copy strong { color: white; }
 .logo-light .logo-copy small { color: #97aaa1; }
-.logo-light .logo-mark-image { filter: brightness(0) invert(1); opacity: .9; }
+.logo-mark-image-invert { filter: brightness(0) invert(1); opacity: .9; }
 .logo-light .logo-mark i { border-bottom-color: #dcebdc; }
 .logo-light .logo-mark i::after { background: #dcebdc; }
 .footer-links { display: flex; align-items: center; gap: 18px; flex: 1; }
